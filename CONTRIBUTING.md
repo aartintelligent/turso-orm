@@ -285,8 +285,11 @@ keep both in sync with this table.
 Releases are automated. Merging to `main` lets `release-plz` open or update
 a release pull request with the bumped versions and changelogs. Merging that
 pull request publishes all five crates to crates.io and creates the GitHub
-release and tags. The `CARGO_REGISTRY_TOKEN` secret must be set on the
-repository.
+release and tags. Two secrets must be set on the repository:
+`CARGO_REGISTRY_TOKEN`, a crates.io token allowed to publish the five crates,
+and `RELEASE_PLZ_TOKEN`, a fine-grained personal token with contents and
+pull-requests write access to this repository, which lets the release pull
+request trigger CI like any other.
 
 ## Notes for AI agents
 

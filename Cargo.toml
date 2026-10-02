@@ -47,14 +47,15 @@ version      = "0.1.0"
 # ------------------------------------------------------------------------------
 
 [workspace.dependencies]
-# Workspace members. The `version` is required so that `cargo publish` can
-# resolve them from crates.io; `default-features = false` lets each consumer
-# choose its own feature set instead of inheriting the defaults.
-turso-orm           = { version = "0.1.0", path = "crates/turso-orm", default-features = false }
-turso-orm-driver    = { version = "0.1.0", path = "crates/turso-orm-driver", default-features = false }
-turso-orm-macros    = { version = "0.1.0", path = "crates/turso-orm-macros" }
-turso-orm-migration = { version = "0.1.0", path = "crates/turso-orm-migration", default-features = false }
-turso-sql           = { version = "0.1.0", path = "crates/turso-sql", default-features = false }
+# Workspace members that other members depend on. The `version` is required
+# so that `cargo publish` can resolve them from crates.io; `default-features =
+# false` lets each consumer choose its own feature set instead of inheriting
+# the defaults. `turso-orm-migration` sits at the top of the stack, so nothing
+# here depends on it and it is not listed: cargo warns about unused entries.
+turso-orm        = { version = "0.1.0", path = "crates/turso-orm", default-features = false }
+turso-orm-driver = { version = "0.1.0", path = "crates/turso-orm-driver", default-features = false }
+turso-orm-macros = { version = "0.1.0", path = "crates/turso-orm-macros" }
+turso-sql        = { version = "0.1.0", path = "crates/turso-sql", default-features = false }
 
 # The Turso database engine client, used by `turso-orm-driver` only. Default
 # features are off because they would force the `mimalloc` global allocator
@@ -105,7 +106,7 @@ quote = "1"
 # Parsing of derive input in `turso-orm-macros`. `full` is needed because
 # `#[turso(...)]` attribute values are parsed as expressions; `extra-traits`
 # gives the parsed types `Debug` for the attribute items and error paths.
-syn = { version = "2", features = ["full", "extra-traits"] }
+syn = { version = "3", features = ["full", "extra-traits"] }
 
 # Date and time value types behind the `with-chrono` feature of `turso-sql`,
 # `turso-orm-driver` and `turso-orm`. Only `std` is on — the `clock` feature

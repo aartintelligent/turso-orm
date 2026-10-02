@@ -46,6 +46,8 @@ test:
 doctest:
     cargo test --workspace --all-features --doc
 
+# CI pins a dated nightly (see .github/workflows/ci.yml) because newer nightlies break the
+# engine's dependencies; locally, any nightly at or before that date works.
 # Build the API docs exactly as docs.rs would.
 doc:
     RUSTDOCFLAGS="--cfg docsrs -D warnings" cargo +nightly doc --workspace --all-features --no-deps

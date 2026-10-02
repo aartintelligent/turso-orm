@@ -15,7 +15,10 @@ on:
     paths: ["**/Cargo.toml", "**/Cargo.lock", "deny.toml"]
   workflow_dispatch:
 
+# `checks: write` lets the action attach its report as a check run on the
+# commit; without it the step fails after a successful audit.
 permissions:
+  checks: write
   contents: read
   issues: write
 

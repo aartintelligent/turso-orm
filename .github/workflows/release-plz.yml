@@ -3,7 +3,11 @@
 #
 # Two jobs run in sequence of intent: `release` publishes whatever a merged
 # release PR bumped, `release-pr` then opens or refreshes the next release PR.
-# Both need `CARGO_REGISTRY_TOKEN` for crates.io.
+# Both need `CARGO_REGISTRY_TOKEN` for crates.io and `RELEASE_PLZ_TOKEN`, a
+# fine-grained personal token with contents and pull-requests write access:
+# events raised with the automatic `GITHUB_TOKEN` trigger no other workflow,
+# so a release PR opened with it would never receive the `CI OK` check that
+# the protected `main` branch requires.
 # ------------------------------------------------------------------------------
 
 name: Release-plz
@@ -29,12 +33,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: release-plz/action@v0.5
         with:
           command: release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
   # Opens or updates the release PR with version bumps and changelogs; never
@@ -53,10 +58,11 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+          token: ${{ secrets.RELEASE_PLZ_TOKEN }}
       - uses: dtolnay/rust-toolchain@stable
       - uses: release-plz/action@v0.5
         with:
           command: release-pr
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLZ_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
