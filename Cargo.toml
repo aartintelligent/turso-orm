@@ -29,10 +29,9 @@ resolver = "3"
 authors    = ["Aurelien Andre <aurelien.andre@aartintelligent.fr>"]
 categories = ["database"]
 edition    = "2024"
-homepage   = "https://github.com/aartintelligent/turso-orm"
+homepage   = "https://aartintelligent.github.io/turso-orm/"
 keywords   = ["turso", "sqlite", "orm", "async", "database"]
 license    = "MIT OR Apache-2.0"
-readme     = "README.md"
 repository = "https://github.com/aartintelligent/turso-orm"
 # Keep in sync with rust-toolchain.toml.
 # This is the MSRV — CI checks the workspace on exactly this version — while
