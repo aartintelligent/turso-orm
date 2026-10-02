@@ -38,7 +38,7 @@ repository = "https://github.com/aartintelligent/turso-orm"
 # rust-toolchain.toml pins the newer development toolchain used locally and by
 # every other CI job.
 rust-version = "1.94"
-version      = "0.1.0"
+version      = "0.1.1"
 
 # ------------------------------------------------------------------------------
 # Workspace dependencies — every version is declared here exactly once; members
@@ -51,10 +51,10 @@ version      = "0.1.0"
 # false` lets each consumer choose its own feature set instead of inheriting
 # the defaults. `turso-orm-migration` sits at the top of the stack, so nothing
 # here depends on it and it is not listed: cargo warns about unused entries.
-turso-orm        = { version = "0.1.0", path = "crates/turso-orm", default-features = false }
-turso-orm-driver = { version = "0.1.0", path = "crates/turso-orm-driver", default-features = false }
-turso-orm-macros = { version = "0.1.0", path = "crates/turso-orm-macros" }
-turso-sql        = { version = "0.1.0", path = "crates/turso-sql", default-features = false }
+turso-orm        = { version = "0.1.1", path = "crates/turso-orm", default-features = false }
+turso-orm-driver = { version = "0.1.1", path = "crates/turso-orm-driver", default-features = false }
+turso-orm-macros = { version = "0.1.1", path = "crates/turso-orm-macros" }
+turso-sql        = { version = "0.1.1", path = "crates/turso-sql", default-features = false }
 
 # The Turso database engine client, used by `turso-orm-driver` only. Default
 # features are off because they would force the `mimalloc` global allocator
