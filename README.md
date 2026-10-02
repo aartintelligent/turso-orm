@@ -2,9 +2,9 @@
 
 **Your entities, Turso underneath.**
 
-An async Rust ORM dedicated to the [Turso database](https://turso.tech/):
-in-process, SQLite-compatible, written in Rust, and now reachable from your
-entities without a server, a C toolchain or a dialect switch.
+turso-orm lets a Rust application keep its data in the
+[Turso database](https://turso.tech/) through entities, relations and
+migrations, with everything the engine can do still within reach.
 
 [![CI](https://github.com/aartintelligent/turso-orm/actions/workflows/ci.yml/badge.svg)](https://github.com/aartintelligent/turso-orm/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/turso-orm.svg)](https://crates.io/crates/turso-orm)
@@ -17,123 +17,74 @@ entities without a server, a C toolchain or a dialect switch.
 [Examples](examples)
 
 turso-orm is an independent, community-maintained project. It is not
-affiliated with, sponsored or endorsed by Turso.
+affiliated with, sponsored or endorsed by Turso, and uses the Turso name only
+to say which database it is made for.
 
-## About
+## Turso, in a few words
 
-Most Rust ORMs talk to several databases at once, and pay for it: every
-engine's particularities hide behind a common abstraction, and the features
-that make one engine interesting are the first to go. turso-orm makes the
-opposite bet. It targets one engine and treats that as a feature.
+[Turso](https://turso.tech/) is a database engine written in Rust by
+[Turso](https://github.com/tursodatabase/turso), compatible with SQLite: the
+same SQL, the same file format, the same idea of a database that runs inside
+your program rather than on a server next to it. On top of that inheritance
+it brings what SQLite never had: several writers at once, search over vectors
+and over text, encryption of the data at rest, and a cloud offering where a
+local file stays in sync with a hosted database, or where a function with no
+disk at all talks to it over the network.
 
-Turso ships as a crate and runs inside your process. It speaks SQLite's
-dialect and file format, and adds what SQLite does not have: concurrent
-writers through MVCC, vector and full-text search, encryption at rest, and
-embedded replicas of a cloud database. turso-orm puts a typed entity API on
-top of all of it, with nothing lost in translation: if the builder offers it,
-the engine runs it.
+For a Rust team this changes the shape of a project. The database is a
+dependency in `Cargo.toml`, not a service to provision; the test suite runs
+against a database that opens in memory in a few milliseconds; the same code
+serves a desktop tool, a web service and a function at the edge, and the
+features that used to need a separate search engine or a managed cluster are
+now a query away.
 
-### Built for one engine
+## The goal of this stack
 
-No backend enum, no dialect switch, no feature that exists only on paper.
-`RETURNING` on every write, `INTEGER PRIMARY KEY` row ids, transactional DDL
-and the four storage classes are relied upon, not papered over.
+An ORM gives those features a home in application code: a struct per table,
+relations declared once and walked in every direction, migrations that carry
+the schema from one version to the next, transactions that read like
+transactions. Most Rust ORMs offer that for several databases at once, and
+pay for it: each engine's particularities hide behind a common abstraction,
+and the features that make one engine interesting are the first to go.
 
-### Familiar entity API
+turso-orm makes the opposite bet. It is written for Turso alone, from the SQL
+builder up, so that nothing the engine offers has to be smuggled through an
+abstraction that does not want it. The result is a small stack you can read,
+with no second dialect, no backend switch and no feature that exists only on
+paper: if the engine runs it, the ORM exposes it.
 
-A `Model` struct per table, generated `Entity`, `Column` and `ActiveModel`,
-relations declared once and walked in every direction. If you have used an
-ORM in Rust or elsewhere, the shape is the one you expect.
+What that buys you, in practice:
 
-### Relations done right
-
-One-to-many, many-to-many through a junction, self-references, several
-relations to one table, and multi-hop chains, all with batch loaders that
-answer one list with one query.
-
-### Nothing to install
-
-The engine is a dependency, not a service. Tests, examples and your own
-suite run against an in-memory database that opens in milliseconds.
-
-## A taste
-
-```rust
-use turso_orm::prelude::*;
-
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-#[turso(table_name = "user")]
-pub struct Model {
-    #[turso(primary_key)]
-    pub id: i32,
-    #[turso(unique)]
-    pub email: String,
-}
-
-#[derive(Copy, Clone, Debug, DeriveRelation)]
-pub enum Relation {}
-
-impl ActiveModelBehavior for ActiveModel {}
-
-let db = Database::connect(ConnectOptions::in_memory()).await?;
-let alice = ActiveModel { email: Set("alice@example.com".into()), ..Default::default() }
-    .insert(&db)
-    .await?;
-let found = Entity::find().filter(Column::Email.ends_with("@example.com")).one(&db).await?;
-```
-
-The [getting started page](https://aartintelligent.github.io/turso-orm/guide/getting-started/)
-turns this into a running program in five short steps.
-
-## Where your data lives
-
-| Mode | Open it with | For |
-|---|---|---|
-| In memory | `ConnectOptions::in_memory()` | Tests, prototypes, short-lived agents |
-| A local file | `ConnectOptions::new("app.db")` | Desktop tools, services with local state |
-| Turso Cloud, embedded replica | `ConnectOptions::sync(path, url)` | Fast local reads, writes synced back |
-| Turso Cloud, over HTTP | `ConnectOptions::remote(url)` | Functions at the edge, no disk at all |
-
-The entities, queries, transactions and migrations are the same in all four;
-only that one line changes.
-
-## What you get
-
-- **Entities**: `DeriveEntityModel` generates the entity, columns, key and
-  active model; composite keys; `bool`, integers, floats, text, blobs,
-  `chrono`, `Uuid`, JSON, `Decimal` and your own enums as column types.
-- **Writes**: `insert`, `update`, `save`, `delete` with `RETURNING`, bulk
-  forms, upserts, hooks around every write, request structs and JSON bodies
-  converted into active models.
-- **Queries**: typed filters and conditions, ordering, offset and keyset
-  pagination, `count`, `exists`, streaming, projections into partial models,
-  tuples, JSON or any struct.
-- **Relations**: `find_related`, `find_also_related`, `find_with_related`,
-  joins with automatic aliasing, `Linked` chains, and loaders that avoid N+1
-  queries.
-- **Transactions**: `DEFERRED`, `IMMEDIATE`, `EXCLUSIVE` and Turso's
-  `CONCURRENT`, nested through savepoints, rolled back on drop, with a
-  closure form that commits for you.
-- **Migrations**: versioned, each one committed with its bookkeeping row
-  inside `BEGIN IMMEDIATE`; `up`, `down`, `status`, `fresh`, `refresh`,
-  `reset`.
-- **Errors you can match on**: unique, foreign-key, not-null and check
-  violations and lock contention are classified once by the driver.
-- **Turso specifics**: MVCC, vector and full-text functions, encryption at
-  rest, embedded replicas, serverless over HTTP.
+- **Modelling that fits the domain.** One-to-many, many-to-many through a
+  junction, a table that refers to itself, several relations between the same
+  two tables, paths across several tables; your schema does not have to bend
+  to the tool.
+- **Lists without the N+1 trap.** Loading the related rows of a whole page of
+  results is one query, whatever the page size.
+- **Writes that say what they touch.** Each field knows whether it is to be
+  written, kept or left to the database default, so an insert sends only what
+  you set and an update only what changed.
+- **Errors you can act on.** A duplicate key, a missing parent row or a busy
+  database arrive as classified errors, not as messages to parse.
+- **Migrations that cannot half-apply.** Each step and its bookkeeping commit
+  together, so a failure leaves the database exactly as it was.
+- **Turso's own strengths, first class.** Concurrent writers, vector and
+  full-text search, encryption, embedded replicas and the serverless mode are
+  used through the same entities as everything else.
 
 ## Where it fits
 
 - **Desktop and command-line tools** that keep state in a file next to the
-  binary, with migrations shipped inside the program.
-- **Web services** on axum or actix-web backed by a local database; the
-  [examples](examples) show both, with a service layer tested in memory.
-- **Edge and cloud** through Turso Cloud, as a replica or over HTTP, without
-  changing the entity code.
-- **AI agents** whose memory, tool calls and embeddings live in one database:
-  structured output straight into rows, retrieval in the same transaction.
-- **Tests** that open their own database in a few milliseconds and throw it
-  away.
+  binary, with the schema's history shipped inside the program.
+- **Web services** backed by a local database, from an internal tool to a
+  prototype that may never need more; the [examples](examples) show one on
+  axum and one on actix-web.
+- **Edge and cloud**, through Turso Cloud as a synced replica or over HTTP,
+  without changing the application code.
+- **AI agents** whose memory, tool calls and embeddings live in one place:
+  structured output goes straight into rows, retrieval happens in the same
+  transaction as the bookkeeping.
+- **Tests** that open their own database, run, and throw it away.
 
 ## Getting started
 
@@ -143,83 +94,53 @@ turso-orm = "0.1"
 tokio     = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-Then follow the [guide](https://aartintelligent.github.io/turso-orm/): entities,
-queries, relations, transactions and migrations, each page explaining the why
-before the how. The [API reference](https://docs.rs/turso-orm) covers every
-item.
-
-| Example | What it shows |
-|---|---|
-| [`basic`](examples/basic) | A console walkthrough: schema generation, CRUD, filters, pagination, streaming, relations and loaders |
-| [`axum_example`](examples/axum_example) | A JSON REST API on [axum](https://github.com/tokio-rs/axum) with `entity`, `migration` and `api` crates and a service-layer test |
-| [`actix_example`](examples/actix_example) | The same API on [actix-web](https://actix.rs) |
-
-```sh
-cargo run --manifest-path examples/basic/Cargo.toml
-cargo run --manifest-path examples/axum_example/Cargo.toml
-```
+The [guide](https://aartintelligent.github.io/turso-orm/) takes it from
+there: a first entity in five short steps, then entities, queries, relations,
+transactions and migrations, each page explaining the why before the how.
+The [API reference](https://docs.rs/turso-orm) covers every item, and the
+[examples](examples) are complete programs that CI compiles and runs.
 
 ## Status and roadmap
 
-`0.1` covers entities, CRUD, relations, transactions and migrations against
-in-memory, file, embedded-replica and serverless databases. The API may still
-move where Turso's own features ask for a different shape; such changes are
-called out in the [changelog](CHANGELOG.md), one for the whole workspace since
-every crate shares the version.
+`0.1` covers entities, reads and writes, relations, transactions and
+migrations against in-memory, file, embedded-replica and serverless
+databases. The API may still move where Turso's own features ask for a
+different shape; such changes are called out in the [changelog](CHANGELOG.md).
 
-Planned next: a command-line tool (migrations, entity generation from an
-existing schema), typed helpers over the vector and full-text functions, and
-nested writes of a model with its related rows. Not planned: a second
-database engine, or a query language of its own.
+Planned next: a command-line tool for migrations and for generating entities
+from an existing schema, typed helpers over the vector and full-text
+functions, and nested writes of a model with its related rows. Not planned: a
+second database engine, or a query language of its own.
 
 ## FAQ
 
 **Is this an official Turso project?** No. turso-orm is independent and
-community-maintained, and uses the Turso name only to say which database it
-targets. The engine itself lives at
-[tursodatabase/turso](https://github.com/tursodatabase/turso).
+community-maintained. The engine itself, its licence and its roadmap belong
+to [Turso](https://github.com/tursodatabase/turso).
 
 **Can it talk to PostgreSQL or MySQL?** No, and it will not. If you need
 several databases, a multi-database ORM is the right tool; if you build on
 Turso, this one is made for it.
 
-**Is it a layer over SQLx or over another ORM?** No. The five crates are
-written from scratch for this engine, from the SQL builder up, and the
-stack is small enough to read.
+**Is it a layer over another ORM?** No. The five crates are written from
+scratch for this engine, from the SQL builder up.
 
-**Is it production ready?** It is `0.1`. Every change runs the test suite
-on Linux, macOS and Windows, the feature powerset, the MSRV, `cargo-deny`
-and the documentation build; `unsafe` is forbidden across the workspace.
-Read the roadmap above before betting a product on it.
+**Is it production ready?** It is `0.1`. Every change runs the test suite on
+Linux, macOS and Windows, every feature combination, the minimum Rust version,
+a supply-chain audit and the documentation build; `unsafe` is forbidden across
+the workspace. Read the roadmap above before betting a product on it.
 
-## The crates
-
-| Crate | Role |
-|---|---|
-| [`turso-orm`](crates/turso-orm) | Entities, active models, queries, relations, loaders, schema generation |
-| [`turso-orm-migration`](crates/turso-orm-migration) | Versioned migrations with transactional DDL |
-| [`turso-orm-driver`](crates/turso-orm-driver) | Connection pool, transactions with savepoints, streaming, typed rows |
-| [`turso-sql`](crates/turso-sql) | SQL AST and builder for the Turso / SQLite dialect |
-| [`turso-orm-macros`](crates/turso-orm-macros) | The derive macros |
-
-Each crate depends only on the ones below it; the
+**How is it organised?** Five crates, each depending only on the ones below
+it: the SQL builder, the driver, the derive macros, the ORM and the
+migrations. The
 [design page](https://aartintelligent.github.io/turso-orm/overview/design/)
-records the layering and the decisions behind it.
-
-## Minimum supported Rust version
-
-Rust 1.94 (edition 2024). Bumping the MSRV is a minor-version change while
-the crates are `0.x`.
+of the guide records the layering and the decisions behind it.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Development uses `just`:
-
-```sh
-just setup   # install the git hooks (formatting, clippy, Conventional Commits)
-just test    # run tests against an in-memory Turso database
-just ci      # fmt, clippy, tests, doctests, cargo-deny, examples, docs
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md): the gates, the hooks, the branching
+model and the commit conventions. The minimum supported Rust version is 1.94;
+raising it is a minor-version change while the crates are `0.x`.
 
 ## License
 
