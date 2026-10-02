@@ -34,7 +34,7 @@ Examples of unacceptable behavior:
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainers at <aartintelligent@gmail.com>. All complaints will
+reported to the maintainers at <contact@aartintelligent.fr>. All complaints will
 be reviewed and investigated promptly and fairly. Maintainers will follow the
 Community Impact Guidelines of the Contributor Covenant 2.1 when deciding on
 consequences (correction, warning, temporary ban, permanent ban).
