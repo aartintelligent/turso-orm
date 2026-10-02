@@ -83,6 +83,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RUSTDOCFLAGS: --cfg docsrs -D warnings
+      # rust-toolchain.toml pins the stable toolchain, which rejects the
+      # `doc_cfg` feature; the nightly installed below must win.
+      RUSTUP_TOOLCHAIN: nightly
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@nightly
