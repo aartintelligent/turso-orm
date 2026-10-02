@@ -10,7 +10,7 @@ many-to-many through a junction, self-references, multi-hop chains),
 loaders, transactions and schema generation.
 
 See the [workspace README](https://github.com/aartintelligent/turso-orm#readme)
-for a complete example.
+for an overview and a quick start.
 
 ## Part of turso-orm
 
