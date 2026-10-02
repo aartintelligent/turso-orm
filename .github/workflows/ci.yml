@@ -191,6 +191,9 @@ jobs:
       - uses: crate-ci/committed@v1.1.11
         with:
           args: -vv --no-merge-commit
+          # The default range walks `HEAD~N` through the merge commit's first
+          # parent, which is `main`, so it falls off the end of a short history.
+          commits: ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
           commits: HEAD~${{ github.event.pull_request.commits }}..HEAD
 
   # Guards the public API: flags semver-breaking changes on pull requests.
@@ -198,6 +201,10 @@ jobs:
     name: Semver
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    # The baseline is the version published on crates.io, so the check cannot
+    # pass before the first release; until then it reports without failing the
+    # pull request. It is not part of `ci-ok` either way.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: obi1kenobi/cargo-semver-checks-action@v2
