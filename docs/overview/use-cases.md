@@ -74,4 +74,4 @@ Every test can open its own in-memory database in a few milliseconds, run
 the migrations, and throw it away. The test suite of this repository works
 that way, and so can yours.
 
-[:octicons-arrow-right-24: Get started](../guide/getting-started.md){ .md-button .md-button--primary }
+[:octicons-arrow-right-24: Quickstart](../guide/quickstart.md){ .md-button .md-button--primary }
