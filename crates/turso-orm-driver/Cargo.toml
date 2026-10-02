@@ -21,8 +21,20 @@ repository.workspace   = true
 rust-version.workspace = true
 version.workspace      = true
 
+# docs.rs builds with the newest nightly, which rejects the unstable allocator
+# calls of the engine's full-text module; that module only compiles under
+# `fts`, so the documentation build enables every feature but that one. The
+# `fts` feature has no documented item of its own: it forwards to the engine.
 [package.metadata.docs.rs]
-all-features = true
+features = [
+    "mimalloc",
+    "serverless",
+    "sync",
+    "with-chrono",
+    "with-json",
+    "with-rust_decimal",
+    "with-uuid",
+]
 rustdoc-args = ["--cfg", "docsrs"]
 
 # Quality gates are centralized in the workspace root `Cargo.toml`.
