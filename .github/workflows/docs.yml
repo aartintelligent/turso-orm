@@ -1,0 +1,56 @@
+# ------------------------------------------------------------------------------
+# Docs — builds the Zensical site on every pull request and publishes it to
+# GitHub Pages on every push to `main`.
+#
+# The build is strict and starts from a clean cache (Zensical advises against
+# caching its build state on CI), so a broken link or a missing snippet fails
+# the pull request before it can break the published site. Deployment goes
+# through the Pages artifact flow, which needs the repository's Pages source
+# set to "GitHub Actions".
+# ------------------------------------------------------------------------------
+
+name: Docs
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Guards the site: the strict build must pass on every change.
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - run: uv run --group docs zensical build --strict --clean
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          path: site
+
+  # Publishes the artifact built above; only on `main`.
+  deploy:
+    name: Deploy
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,40 @@
+# ------------------------------------------------------------------------------
+# `turso-orm-macros` — derive macros for the ORM: `DeriveEntityModel` and its
+# companions generate the entity, column, primary-key and active-model
+# boilerplate, and `DeriveMigrationName` names migrations after their module.
+#
+# A proc-macro crate: it depends on the usual `syn`/`quote` stack only and on
+# nothing else in the workspace. The generated code targets `turso-orm`.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "turso-orm-macros"
+description            = "Derive macros for turso-orm"
+documentation          = "https://docs.rs/turso-orm-macros"
+authors.workspace      = true
+categories.workspace   = true
+edition.workspace      = true
+homepage.workspace     = true
+keywords.workspace     = true
+license.workspace      = true
+readme                 = "README.md"
+repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# Quality gates are centralized in the workspace root `Cargo.toml`.
+[lints]
+workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+heck        = { workspace = true }
+proc-macro2 = { workspace = true }
+quote       = { workspace = true }
+syn         = { workspace = true }

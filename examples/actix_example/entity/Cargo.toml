@@ -1,0 +1,15 @@
+# ------------------------------------------------------------------------------
+# entity — the models of the actix example, shared by `migration` and `api`.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "entity"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+publish.workspace      = true
+
+[dependencies]
+# Models double as the JSON bodies of the API.
+serde     = { version = "1", features = ["derive"] }
+turso-orm = { workspace = true }

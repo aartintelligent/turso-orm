@@ -1,0 +1,27 @@
+# ------------------------------------------------------------------------------
+# Dependabot — weekly dependency update PRs for Cargo and GitHub Actions.
+#
+# Minor and patch Cargo bumps are grouped into one PR; major bumps come alone.
+# All Actions bumps are grouped. rust-toolchain.toml is bumped by hand.
+# ------------------------------------------------------------------------------
+
+version: 2
+updates:
+  # Cargo dependencies of the workspace.
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+    labels: [dependencies, rust]
+  # Actions used by the workflows.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+    labels: [dependencies, ci]

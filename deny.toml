@@ -1,0 +1,83 @@
+# ------------------------------------------------------------------------------
+# cargo-deny — supply-chain policy: advisories, licences, bans, sources.
+#
+# Run with `cargo deny check` (the `deny` recipe in the justfile); CI runs the
+# same command on every push and pull request.
+# Reference: https://embarkstudios.github.io/cargo-deny/
+# ------------------------------------------------------------------------------
+
+# Resolve the graph with every feature on, so that optional dependencies such
+# as the `sync` TLS stack are checked too.
+[graph]
+all-features = true
+
+# RustSec advisories: a yanked crate anywhere in the lockfile fails the check.
+[advisories]
+version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked  = "deny"
+ignore  = []
+
+[licenses]
+version              = 2
+confidence-threshold = 0.9
+# Permissive licences only. Beyond the usual MIT/Apache-2.0 pair, each entry
+# below is there for a specific transitive dependency:
+# - `Apache-2.0 WITH LLVM-exception`: `rustix`, `linux-raw-sys` and `wasi`.
+# - `BSD-2-Clause`: `zerocopy`, through `rand`.
+# - `BSD-3-Clause`: `bindgen` (build dependency of the engine), `sha1_smol`
+#   (through `uuid`) and `subtle` (the `rustls` stack behind `sync`).
+# - `ISC`: `libloading`, through `bindgen`/`clang-sys`.
+# - `Unicode-3.0`: the ICU crates (`icu_*`, `zerovec`, `yoke`, ...) that
+#   `turso_core` uses for collation, and `unicode-ident` behind `syn`.
+# - `Zlib`: `bytemuck` and `pack1`, through `roaring` in `turso_core`.
+# - `MPL-2.0`: `htmlescape`, through `tantivy` (full-text search).
+# - `CC0-1.0`: `dunce`, a build-time path helper.
+# - `OpenSSL`: matches nothing today (`ring` declares it). Kept for future
+#   transitive dependencies.
+# - `Unlicense`: `memchr`, `aho-corasick` and `byteorder`.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "MPL-2.0",
+    "CC0-1.0",
+    "OpenSSL",
+    "Unlicense",
+]
+# The Mozilla root certificate bundles ship under CDLA-Permissive-2.0, a
+# data licence with no obligations on redistribution. They come in through
+# `reqwest` for the `serverless` feature only.
+exceptions = [
+    { allow = ["CDLA-Permissive-2.0"], crate = "webpki-root-certs" },
+    { allow = ["CDLA-Permissive-2.0"], crate = "webpki-roots" },
+]
+
+# The workspace crates are dual-licensed and not subject to this check.
+[licenses.private]
+ignore = true
+
+# Duplicate versions are reported but tolerated — the engine's dependency tree
+# is wide; wildcard version requirements are not.
+[bans]
+multiple-versions          = "warn"
+wildcards                  = "deny"
+highlight                  = "all"
+workspace-default-features = "allow"
+external-default-features  = "allow"
+deny                       = []
+skip                       = []
+skip-tree                  = []
+
+# Only crates.io; no git or alternative-registry dependencies.
+[sources]
+unknown-registry = "deny"
+unknown-git      = "deny"
+allow-registry   = ["https://github.com/rust-lang/crates.io-index"]
+allow-git        = []

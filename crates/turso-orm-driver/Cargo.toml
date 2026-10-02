@@ -1,0 +1,68 @@
+# ------------------------------------------------------------------------------
+# `turso-orm-driver` — engine access for the ORM: a connection pool with an
+# acquire timeout and busy backoff, transactions, statement execution, row
+# streams and typed decoding of column values.
+#
+# Depends on `turso-sql` and the `turso` client, nothing else in the workspace.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "turso-orm-driver"
+description            = "Connection pool, transactions and typed rows for the Turso database"
+documentation          = "https://docs.rs/turso-orm-driver"
+authors.workspace      = true
+categories.workspace   = true
+edition.workspace      = true
+homepage.workspace     = true
+keywords.workspace     = true
+license.workspace      = true
+readme                 = "README.md"
+repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# Quality gates are centralized in the workspace root `Cargo.toml`.
+[lints]
+workspace = true
+
+[features]
+default = []
+# Engine features: forwarded to the `turso` client, which has them off by
+# default here so that consumers opt in deliberately.
+fts      = ["turso/fts"]
+mimalloc = ["turso/mimalloc"]
+sync     = ["turso/sync"]
+# Turso Cloud over HTTP, through the `turso_serverless` client: a second
+# engine behind the same pool, transactions and rows.
+serverless = ["dep:turso_serverless"]
+# Value-type features: enable decoding of the external type from a row and
+# forward the matching feature to `turso-sql` for the `Value` conversions.
+with-chrono       = ["turso-sql/with-chrono", "dep:chrono"]
+with-json         = ["turso-sql/with-json", "dep:serde_json"]
+with-rust_decimal = ["turso-sql/with-rust_decimal", "dep:rust_decimal"]
+with-uuid         = ["turso-sql/with-uuid", "dep:uuid"]
+
+[dependencies]
+async-trait  = { workspace = true }
+chrono       = { workspace = true, optional = true }
+futures-util = { workspace = true }
+rust_decimal = { workspace = true, optional = true }
+serde_json   = { workspace = true, optional = true }
+thiserror    = { workspace = true }
+# `sync` for the pool `Semaphore`, `time` for the acquire timeout and the
+# sleep between busy retries; no runtime is pulled in.
+tokio            = { workspace = true, features = ["sync", "time"] }
+tracing          = { workspace = true }
+turso            = { workspace = true }
+turso-sql        = { workspace = true }
+turso_serverless = { workspace = true, optional = true }
+uuid             = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+# `#[tokio::test]` and a real multi-threaded runtime for the pool tests.
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

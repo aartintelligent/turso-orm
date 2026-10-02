@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# ------------------------------------------------------------------------------
+# .agents/setup — bootstraps a development environment for this repository.
+#
+# Run by cloud coding agents before their first command, and usable by humans
+# after cloning. Idempotent: every step checks before it installs. The Rust
+# toolchain itself comes from rust-toolchain.toml through rustup.
+# ------------------------------------------------------------------------------
+set -euo pipefail
+
+repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo_root"
+
+log() { printf '\n[setup] %s\n' "$*"; }
+
+# Installs a cargo binary when its command is missing, through cargo-binstall
+# when available (prebuilt, seconds) and `cargo install` otherwise.
+cargo_tool() {
+    local command="$1" crate="$2"
+    if command -v "$command" >/dev/null 2>&1; then
+        return
+    fi
+    log "installing $crate"
+    if command -v cargo-binstall >/dev/null 2>&1; then
+        cargo binstall -y --locked "$crate"
+    else
+        cargo install --locked "$crate"
+    fi
+}
+
+log "provisioning the pinned toolchain"
+rustup show active-toolchain >/dev/null
+rustup toolchain install nightly --profile minimal >/dev/null 2>&1 || true
+
+log "checking cargo tools"
+cargo_tool just just
+cargo_tool cargo-nextest cargo-nextest
+cargo_tool cargo-deny cargo-deny
+cargo_tool cargo-hack cargo-hack
+cargo_tool taplo taplo-cli
+cargo_tool typos typos-cli
+cargo_tool committed committed
+
+if ! command -v lefthook >/dev/null 2>&1; then
+    log "installing lefthook"
+    if command -v npm >/dev/null 2>&1; then
+        npm install -g lefthook
+    else
+        cargo_tool lefthook lefthook
+    fi
+fi
+
+if ! command -v uv >/dev/null 2>&1; then
+    log "installing uv"
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
+log "installing the git hooks and the docs toolchain"
+lefthook install
+uv sync --group docs
+
+log "warming the build"
+cargo fetch
+cargo build --workspace --all-features
+
+log "done"

@@ -1,0 +1,29 @@
+# ------------------------------------------------------------------------------
+# api — the HTTP layer of the actix example and the service functions under it.
+#
+# The service layer (`service::Query`, `service::Mutation`) is plain async
+# functions over a `Database`, so the integration test exercises it against
+# an in-memory database without starting a server.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "actix-example-api"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+publish.workspace      = true
+
+[dependencies]
+actix-web          = "4"
+anyhow             = "1"
+dotenvy            = "0.15"
+entity             = { path = "../entity" }
+migration          = { path = "../migration" }
+serde              = { version = "1", features = ["derive"] }
+serde_json         = "1"
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+turso-orm          = { workspace = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

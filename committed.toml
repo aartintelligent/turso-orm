@@ -1,0 +1,33 @@
+# ------------------------------------------------------------------------------
+# committed — Conventional Commits enforcement, used by the commit-msg hook
+# and by the `commits` CI job.
+#
+# Mirrors the rules stated in CONTRIBUTING.md and the changelog mapping in
+# release-plz.toml; change the three together.
+# ------------------------------------------------------------------------------
+
+style = "conventional"
+
+# The full type table from CONTRIBUTING.md, including `deprecate`, which
+# release-plz lists under its own changelog heading.
+allowed_types = [
+    "feat",
+    "fix",
+    "perf",
+    "refactor",
+    "docs",
+    "deprecate",
+    "revert",
+    "test",
+    "build",
+    "ci",
+    "chore",
+    "style",
+]
+
+# Header and wrapped lines are capped at 100 columns.
+subject_length = 100
+line_length    = 100
+
+# Conventional Commits descriptions are lowercase by convention.
+subject_capitalized = false

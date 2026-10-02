@@ -1,0 +1,25 @@
+# ------------------------------------------------------------------------------
+# EditorConfig — baseline editor settings matching rustfmt and taplo.
+# ------------------------------------------------------------------------------
+
+root = true
+
+[*]
+charset                  = utf-8
+end_of_line              = lf
+indent_size              = 4
+indent_style             = space
+insert_final_newline     = true
+trim_trailing_whitespace = true
+
+# Two-space indentation for the YAML workflows and JSON files.
+[*.{yml,yaml,json,json5}]
+indent_size = 2
+
+# Trailing double spaces are hard line breaks in Markdown.
+[*.md]
+trim_trailing_whitespace = false
+
+# Recipe bodies are indented with spaces, not tabs.
+[justfile]
+indent_style = space

@@ -1,0 +1,26 @@
+# ------------------------------------------------------------------------------
+# clippy — lint configuration shared by every member; the lint levels themselves
+# live in `[workspace.lints]` of the root Cargo.toml.
+#
+# Clippy reads `rust-version` from Cargo.toml on its own for the MSRV-gated
+# lints, so no `msrv` key is needed here.
+# ------------------------------------------------------------------------------
+
+# The restriction lints (`unwrap_used`, `dbg_macro`, `print_*`) guard library
+# code only; tests may panic and print freely.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-dbg-in-tests    = true
+allow-print-in-tests  = true
+# Proper nouns that `clippy::doc_markdown` should not ask to backtick; `..`
+# keeps the default list in place.
+doc-valid-idents = [
+    "SQLite",
+    "SQLx",
+    "Turso",
+    "MySQL",
+    "PostgreSQL",
+    "..",
+    "crates.io",
+    "docs.rs",
+]

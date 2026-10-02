@@ -1,0 +1,30 @@
+# ------------------------------------------------------------------------------
+# git — files that never belong in the repository.
+# ------------------------------------------------------------------------------
+
+# Build output, of the root workspace and of each example workspace.
+target/
+
+# IDE and agent state.
+/.idea/
+/.vscode/
+*.iml
+/.claude/settings.local.json
+
+# OS metadata.
+.DS_Store
+Thumbs.db
+
+# Local databases produced by examples and tests.
+*.db
+*.db-wal
+*.db-shm
+
+# Documentation site: build output and the uv-managed Python environment.
+/site/
+/.venv/
+/.cache/
+
+# Coverage reports.
+/lcov.info
+/coverage/

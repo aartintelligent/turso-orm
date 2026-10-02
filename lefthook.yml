@@ -1,0 +1,24 @@
+# ------------------------------------------------------------------------------
+# lefthook — git hooks, installed once with `just setup` (`lefthook install`).
+#
+# `pre-commit` runs the fast gates: formatting of Rust and TOML, and clippy
+# with warnings as errors. `commit-msg` enforces Conventional Commits through
+# `committed` (rules in committed.toml), which `release-plz` relies on. The
+# heavier gates (tests, docs, cargo-deny, examples) stay a `just ci` and CI
+# concern so that commits stay fast.
+# ------------------------------------------------------------------------------
+
+pre-commit:
+  parallel: true
+  commands:
+    fmt:
+      run: cargo fmt --all --check
+    taplo:
+      run: taplo fmt --check
+    clippy:
+      run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+commit-msg:
+  commands:
+    conventional:
+      run: committed --commit-file {1}

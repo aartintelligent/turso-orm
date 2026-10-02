@@ -1,0 +1,24 @@
+# ------------------------------------------------------------------------------
+# basic — a standalone example exercising the entity API end to end.
+#
+# A separate workspace, so that the example resolves its own dependency graph
+# and the root workspace stays limited to the published crates. The `path`
+# dependency points at the in-repository ORM; remove it in your own project.
+# ------------------------------------------------------------------------------
+
+[workspace]
+
+[package]
+name         = "turso-orm-example-basic"
+version      = "0.1.0"
+edition      = "2024"
+rust-version = "1.94"
+publish      = false
+
+[dependencies]
+# Row streaming in `query.rs` goes through `TryStreamExt`.
+futures-util = "0.3"
+# The JSON column of `cake` uses `serde_json::Value`.
+serde_json = "1"
+tokio      = { version = "1", features = ["macros", "rt-multi-thread"] }
+turso-orm  = { version = "0.1", path = "../../crates/turso-orm" }

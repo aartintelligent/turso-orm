@@ -1,0 +1,169 @@
+/* ---------------------------------------------------------------------------
+   Home page styles — the hero banner and the sections of `docs/index.md`.
+
+   Every rule is scoped to `.tx-*` classes or to the home page body, so the
+   guide pages are untouched. Colours come from the Material palette
+   variables, which is what keeps the light and dark schemes consistent.
+   --------------------------------------------------------------------------- */
+
+/* The hero fills the viewport under the header and the tabs. The
+   illustration sits on the left of the image; the right column holds the
+   text at the top and the code window at the bottom. */
+.tx-hero {
+    display: flex;
+    /* The header and the tabs take 4.8rem; the rest of the viewport is the hero. */
+    min-height: calc(100vh - 4.8rem);
+    color: #ffffff;
+    background-color: var(--turso-bunker);
+    background-position: left center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.tx-hero__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    /* Text and code window sit together, centred in the right column. */
+    align-content: center;
+    gap: 2rem;
+    width: 100%;
+    padding: 2rem 1.2rem 2.4rem;
+}
+
+/* Text above the code window in the right column. */
+.tx-hero__content {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: 30rem;
+}
+
+.tx-hero__code {
+    grid-column: 2;
+    grid-row: 2;
+}
+
+/* Narrow screens stack the text above the code window; the illustration
+   keeps covering the whole hero, cropped on its empty right side. */
+@media screen and (max-width: 76.1875em) {
+    .tx-hero {
+        background-position: 30% center;
+    }
+
+    .tx-hero__inner {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        align-content: end;
+    }
+
+    .tx-hero__code,
+    .tx-hero__content {
+        grid-column: 1;
+    }
+
+    .tx-hero__code {
+        grid-row: 2;
+    }
+
+    .tx-hero__content {
+        grid-row: 1;
+    }
+}
+
+.tx-hero h1 {
+    margin: 0 0 0.8rem;
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: inherit;
+}
+
+.tx-hero__lead {
+    margin: 0 0 0.6rem;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.tx-hero__note {
+    margin: 0 0 1.2rem;
+    font-size: 0.64rem;
+    color: #9ca3af;
+}
+
+.tx-hero__note a {
+    color: var(--turso-aqua);
+}
+
+/* Pill buttons, aqua on dark like turso.tech's call to action. */
+.tx-hero__actions .md-button {
+    margin: 0 0.6rem 0 0;
+    color: #ffffff;
+    border: 1px solid var(--turso-bluewood);
+    border-radius: 999px;
+    background: rgba(22, 33, 41, 0.6);
+}
+
+.tx-hero__actions .md-button--primary {
+    color: var(--turso-bunker);
+    border-color: var(--turso-aqua);
+    background: var(--turso-aqua);
+}
+
+.tx-hero__actions .md-button:hover {
+    color: var(--turso-bunker);
+    border-color: var(--turso-aqua);
+    background: var(--turso-aqua);
+}
+
+/* The code window: Mirage on Bunker, bordered like turso.tech's own snippet. */
+.tx-hero__window {
+    overflow: hidden;
+    border: 1px solid var(--turso-bluewood);
+    border-radius: 0.5rem;
+    background: rgba(13, 19, 24, 0.85);
+    box-shadow: 0 1.2rem 2.4rem rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(6px);
+}
+
+.tx-hero__dots {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid var(--turso-bluewood);
+    background: var(--turso-mirage);
+}
+
+.tx-hero__dots span {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: var(--turso-bluewood);
+}
+
+.tx-hero__window pre {
+    margin: 0;
+    padding: 1rem 1.2rem;
+    font-size: 0.68rem;
+    line-height: 1.55;
+    color: #e6edf3;
+    background: transparent;
+}
+
+.tx-hero__window code {
+    background: transparent;
+}
+
+.tx-hero__window .k  { color: var(--turso-aqua); }
+.tx-hero__window .kt { color: #79c0ff; }
+.tx-hero__window .nc { color: #ffffff; font-weight: 600; }
+.tx-hero__window .nf { color: #d2a8ff; }
+.tx-hero__window .n  { color: #e6edf3; }
+.tx-hero__window .s  { color: #a5d6ff; }
+.tx-hero__window .cp { color: #9ca3af; }
+
+/* The home page has no content below the hero. */
+.tx-hero + .md-main,
+body:has(.tx-hero) .md-main {
+    display: none;
+}

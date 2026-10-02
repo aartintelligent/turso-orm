@@ -1,0 +1,11 @@
+# ------------------------------------------------------------------------------
+# rustfmt — formatting rules for every Rust source in the workspace.
+#
+# Stable options only, so that `cargo fmt` works on the pinned toolchain
+# without nightly. Reference: https://rust-lang.github.io/rustfmt/
+# ------------------------------------------------------------------------------
+
+style_edition            = "2024"
+newline_style            = "Unix"
+use_field_init_shorthand = true
+use_try_shorthand        = true

@@ -1,0 +1,137 @@
+# ------------------------------------------------------------------------------
+# mkdocs — the documentation site, built with Zensical.
+#
+# Zensical, by the Material for MkDocs team, reads this MkDocs-format file as
+# is and renders the Material theme (`variant: modern`, or `classic` for the
+# historical look). `docs/` is the source; `just docs-serve` previews it and
+# the `docs` workflow publishes it to GitHub Pages. Code blocks are pulled
+# from the compiled examples through `pymdownx.snippets` markers, so a page
+# can never show code that does not build. `strict: true` turns a broken
+# link or a missing snippet into a build failure.
+# ------------------------------------------------------------------------------
+
+site_name: Turso ORM
+site_description: An async ORM dedicated to the Turso database, with a typed entity API.
+site_url: https://aartintelligent.github.io/turso-orm/
+repo_url: https://github.com/aartintelligent/turso-orm
+repo_name: aartintelligent/turso-orm
+edit_uri: edit/main/docs/
+copyright: >-
+  Copyright &copy; Aurelien Andre. MIT OR Apache-2.0. turso-orm is an independent
+  project and is not affiliated with or endorsed by
+  <a href="https://turso.tech/">Turso</a>.
+strict: true
+
+theme:
+  name: material
+  # `modern` is Zensical's refreshed look; `classic` keeps Material for MkDocs's.
+  variant: modern
+  custom_dir: overrides
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  # The Turso logomark from the brand kit, as header logo and favicon.
+  logo: assets/turso/logomark-illustrated.svg
+  favicon: assets/turso/logomark-illustrated.svg
+  # A single dark palette, no toggle: the site follows turso.tech, which is
+  # dark only. `custom` hands the colours to assets/stylesheets/brand.css.
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+  # The same type as turso.tech.
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.suggest
+    - toc.follow
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:zensical.extensions.emoji.twemoji
+      emoji_generator: !!python/name:zensical.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+plugins:
+  - search
+
+extra_css:
+  - assets/stylesheets/brand.css
+  - assets/stylesheets/home.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/aartintelligent/turso-orm
+      name: turso-orm on GitHub
+    - icon: fontawesome/brands/rust
+      link: https://crates.io/crates/turso-orm
+      name: turso-orm on crates.io
+    - icon: material/database-outline
+      link: https://turso.tech/
+      name: Turso
+  generator: false
+
+nav:
+  - Home: index.md
+  - Overview:
+      - Why: overview/why.md
+      - Features: overview/features.md
+      - Use cases: overview/use-cases.md
+      - Design: overview/design.md
+      - Compatibility: overview/compatibility.md
+      - Roadmap: overview/roadmap.md
+  - Documentation:
+      - Getting started: guide/getting-started.md
+      - Entities: guide/entities.md
+      - Queries: guide/queries.md
+      - Relations: guide/relations.md
+      - Transactions: guide/transactions.md
+      - Migrations: guide/migrations.md
+  - Project:
+      - About: project/about.md
+      - Contributing: project/contributing.md
+      - Community: project/community.md
+      - License: project/license.md

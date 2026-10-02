@@ -1,0 +1,12 @@
+# ------------------------------------------------------------------------------
+# typos — source-code spell checker, run by the `typos` CI job.
+#
+# Generated and third-party files are excluded; false positives go in
+# `[default.extend-words]`. Reference: https://github.com/crate-ci/typos
+# ------------------------------------------------------------------------------
+
+[files]
+extend-exclude = ["target/", "Cargo.lock", "uv.lock", "CHANGELOG.md", "crates/*/CHANGELOG.md"]
+
+# Add false positives here, e.g. `ser = "ser"`.
+[default.extend-words]

@@ -1,0 +1,229 @@
+# ------------------------------------------------------------------------------
+# CI — the checks every push to `main`, pull request and merge-group run.
+#
+# Each job guards one thing; `ci-ok` aggregates them into the single status
+# check that branch protection requires. The `justfile` mirrors these recipes
+# for local runs.
+# ------------------------------------------------------------------------------
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_BUILD_WARNINGS: deny
+  RUST_BACKTRACE: 1
+
+jobs:
+  # Guards formatting: `cargo fmt` for Rust and `taplo` for TOML.
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: taplo
+      - run: cargo fmt --all --check
+      - run: taplo fmt --check
+
+  # Guards the lint policy: clippy on every target with warnings as errors.
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  # Guards behaviour: the test suite and the doctests on all three platforms.
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+      - run: cargo nextest run --workspace --all-features
+      - run: cargo test --workspace --all-features --doc
+
+  # Guards the documentation: builds with the docs.rs flags, warnings as errors.
+  docs:
+    name: Docs (docs.rs settings)
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: --cfg docsrs -D warnings
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo doc --workspace --all-features --no-deps
+
+  # Guards the MSRV: compiles on exactly the `rust-version` from Cargo.toml.
+  msrv:
+    name: MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: msrv
+        run: echo "version=$(awk -F'"' '/^rust-version/ {print $2; exit}' Cargo.toml)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: cargo check --workspace --all-features --all-targets
+        env:
+          # rust-toolchain.toml would otherwise override the MSRV toolchain.
+          RUSTUP_TOOLCHAIN: ${{ steps.msrv.outputs.version }}
+
+  # Guards feature independence: every feature pair compiles on its own.
+  features:
+    name: Feature powerset
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-hack
+      - run: cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps
+
+  # Guards the examples: each one is a separate workspace, formatted, linted
+  # and tested on its own; the console example must also run to completion.
+  examples:
+    name: Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          workspaces: |
+            examples/basic
+            examples/axum_example
+            examples/actix_example
+      - run: |
+          for manifest in examples/*/Cargo.toml; do
+            echo "::group::$manifest"
+            cargo fmt --all --manifest-path "$manifest" -- --check
+            cargo clippy --workspace --all-targets --manifest-path "$manifest" -- -D warnings
+            cargo test --workspace --manifest-path "$manifest"
+            echo "::endgroup::"
+          done
+          cargo run --manifest-path examples/basic/Cargo.toml
+
+  # Guards the supply chain: advisories, licences, bans and sources (deny.toml).
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+
+  # Guards spelling in sources and docs (typos.toml).
+  typos:
+    name: Spelling
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: crate-ci/typos@master
+
+  # Guards the history: every commit of a pull request must be a Conventional
+  # Commit (committed.toml), since release-plz derives versions from them.
+  commits:
+    name: Commits
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: crate-ci/committed@master
+        with:
+          args: -vv --no-merge-commit
+          commits: HEAD~${{ github.event.pull_request.commits }}..HEAD
+
+  # Guards the public API: flags semver-breaking changes on pull requests.
+  semver:
+    name: Semver
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: obi1kenobi/cargo-semver-checks-action@v2
+
+  # Reports test coverage to Codecov; informational, never blocks a merge.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov,cargo-nextest
+      - run: cargo llvm-cov nextest --workspace --all-features --lcov --output-path lcov.info
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  # Single required status check for branch protection — green only when every
+  # job it needs succeeded.
+  ci-ok:
+    name: CI OK
+    if: always()
+    needs: [fmt, clippy, test, docs, msrv, features, examples, deny, typos]
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo '${{ toJSON(needs) }}' | jq -e 'to_entries | all(.value.result == "success")'

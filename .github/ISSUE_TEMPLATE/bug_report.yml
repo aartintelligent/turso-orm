@@ -1,0 +1,27 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: A small Rust snippet or a link to a repository that reproduces the issue.
+      render: rust
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Output of `cargo tree -i turso-orm -i turso` and `rustc --version`.
+      placeholder: turso-orm 0.1.0, turso 0.8.1, rustc 1.97.1
+    validations:
+      required: true

@@ -1,0 +1,189 @@
+# ------------------------------------------------------------------------------
+# turso-orm — workspace manifest: member list, shared package metadata, the
+# single source of truth for dependency versions, the lint policy every member
+# inherits, and the release build profile.
+#
+# Members are listed in dependency order: `turso-sql` (no engine), then
+# `turso-orm-driver` (engine access), `turso-orm-macros` (proc macros),
+# `turso-orm` (the ORM itself) and `turso-orm-migration` (built on the ORM).
+# ------------------------------------------------------------------------------
+
+[workspace]
+members = [
+    "crates/turso-sql",
+    "crates/turso-orm-driver",
+    "crates/turso-orm-macros",
+    "crates/turso-orm",
+    "crates/turso-orm-migration",
+]
+# The examples are separate workspaces (see `examples/*/Cargo.toml`) so that
+# their web frameworks never enter this dependency graph; `exclude` stops
+# cargo from treating them as stray members.
+exclude = ["examples/*"]
+# A virtual manifest has no `[package]`, so the resolver cannot be inferred
+# from the edition and must be stated explicitly.
+resolver = "3"
+
+# Metadata inherited by every member through `<key>.workspace = true`.
+[workspace.package]
+authors    = ["Aurelien Andre <aartintelligent@gmail.com>"]
+categories = ["database"]
+edition    = "2024"
+homepage   = "https://github.com/aartintelligent/turso-orm"
+keywords   = ["turso", "sqlite", "orm", "async", "database"]
+license    = "MIT OR Apache-2.0"
+readme     = "README.md"
+repository = "https://github.com/aartintelligent/turso-orm"
+# Keep in sync with rust-toolchain.toml.
+# This is the MSRV — CI checks the workspace on exactly this version — while
+# rust-toolchain.toml pins the newer development toolchain used locally and by
+# every other CI job.
+rust-version = "1.94"
+version      = "0.1.0"
+
+# ------------------------------------------------------------------------------
+# Workspace dependencies — every version is declared here exactly once; members
+# opt in with `{ workspace = true }` and add only the features they need.
+# ------------------------------------------------------------------------------
+
+[workspace.dependencies]
+# Workspace members. The `version` is required so that `cargo publish` can
+# resolve them from crates.io; `default-features = false` lets each consumer
+# choose its own feature set instead of inheriting the defaults.
+turso-orm           = { version = "0.1.0", path = "crates/turso-orm", default-features = false }
+turso-orm-driver    = { version = "0.1.0", path = "crates/turso-orm-driver", default-features = false }
+turso-orm-macros    = { version = "0.1.0", path = "crates/turso-orm-macros" }
+turso-orm-migration = { version = "0.1.0", path = "crates/turso-orm-migration", default-features = false }
+turso-sql           = { version = "0.1.0", path = "crates/turso-sql", default-features = false }
+
+# The Turso database engine client, used by `turso-orm-driver` only. Default
+# features are off because they would force the `mimalloc` global allocator
+# and full-text search on every consumer; they are re-exposed as the opt-in
+# `mimalloc`, `fts` and `sync` features of the driver and of `turso-orm`.
+turso = { version = "0.8.1", default-features = false }
+
+# The Turso Cloud HTTP client, behind the `serverless` feature of
+# `turso-orm-driver` and of `turso-orm`. Its API mirrors the embedded
+# `turso` client, which is what lets the driver instantiate the same
+# execution code for both.
+turso_serverless = { version = "0.1.3" }
+
+# Object-safe async traits — `ConnectionTrait` and `TransactionTrait` in
+# `turso-orm-driver`, `ActiveModelTrait` and `LoaderTrait` in `turso-orm`,
+# `MigrationTrait` in `turso-orm-migration` — and re-exported by `turso-orm`
+# for the code emitted by `turso-orm-macros`.
+async-trait = { version = "0.1", default-features = false }
+
+# `Stream` and `stream::unfold` back the row streams of `turso-orm-driver`;
+# `TryStreamExt` adapts them in `turso-orm`. The `std` feature is needed for
+# the boxed streams and the extension traits.
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+
+# Error enums of `turso-orm-driver` and `turso-orm`. Already in the graph
+# through `turso`.
+thiserror = { version = "2", default-features = false }
+
+# Async runtime pieces for `turso-orm-driver`: the pool semaphore (`sync`) and
+# the acquire timeout and busy backoff (`time`). Features are enabled per
+# member; the test suites add `macros` and `rt-multi-thread`.
+tokio = { version = "1", default-features = false }
+
+# Statement and pool logging in `turso-orm-driver`, migration progress in
+# `turso-orm-migration`. Already in the graph through `turso`.
+tracing = { version = "0.1", default-features = false }
+
+# Case conversion in `turso-orm-macros` — entity and column identifiers to
+# `UpperCamelCase` and `snake_case`.
+heck = "0.5"
+
+# Token streams for the derives in `turso-orm-macros`.
+proc-macro2 = "1"
+
+# Quasi-quoting for the code emitted by `turso-orm-macros`.
+quote = "1"
+
+# Parsing of derive input in `turso-orm-macros`. `full` is needed because
+# `#[turso(...)]` attribute values are parsed as expressions; `extra-traits`
+# gives the parsed types `Debug` for the attribute items and error paths.
+syn = { version = "2", features = ["full", "extra-traits"] }
+
+# Date and time value types behind the `with-chrono` feature of `turso-sql`,
+# `turso-orm-driver` and `turso-orm`. Only `std` is on — the `clock` feature
+# is left off on purpose so that `Local` never enters the API. Already in the
+# graph through `turso`.
+chrono = { version = "0.4.30", default-features = false, features = ["std"] }
+
+# Decimal value type behind the `with-rust_decimal` feature of `turso-sql`,
+# `turso-orm-driver` and `turso-orm`.
+rust_decimal = { version = "1", default-features = false, features = ["std"] }
+
+# JSON value type behind the `with-json` feature of `turso-sql`,
+# `turso-orm-driver` and `turso-orm`. Already in the graph through `turso`.
+serde_json = { version = "1", default-features = false, features = ["std"] }
+
+# UUID value type behind the `with-uuid` feature of `turso-sql`,
+# `turso-orm-driver` and `turso-orm`; `v4` is on for generating keys in tests
+# and examples. Already in the graph through `turso`.
+uuid = { version = "1", default-features = false, features = ["std", "v4"] }
+
+# Dev-dependency: temporary directories for the on-disk database tests of
+# `turso-orm-driver` and `turso-orm`.
+tempfile = "3"
+
+# ------------------------------------------------------------------------------
+# Quality gates — inherited by every member through `[lints] workspace = true`.
+# Never silence one of these locally without a written justification.
+# ------------------------------------------------------------------------------
+
+[workspace.lints.rust]
+# Every public type should be printable while debugging.
+missing_debug_implementations = "warn"
+# Every public item must carry English rustdoc.
+missing_docs = "warn"
+# Edition-2018 idioms (explicit `dyn`, no extern crate, ...); lower priority so
+# that individual lints below can still override it.
+rust_2018_idioms = { level = "warn", priority = -1 }
+# Catches `pub` items that are not actually reachable from outside the crate.
+unreachable_pub = "warn"
+# No unsafe code anywhere in the workspace.
+unsafe_code = "forbid"
+# Paths that are already imported should not be spelled out again.
+unused_qualifications = "warn"
+
+[workspace.lints.clippy]
+# The default lint set plus the pedantic group, both at low priority so that
+# the explicit allows and warns below take precedence.
+all      = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+# Pedantic lints that are more noise than signal for this codebase.
+# Every fallible function returns `DbErr`; documenting that on each one would
+# repeat the error enum's own docs.
+missing_errors_doc = "allow"
+# Names like `entity::EntityTrait` are the conventional ORM vocabulary.
+module_name_repetitions = "allow"
+# Builders and query types are consumed by chaining; a blanket `#[must_use]`
+# would be mostly wrong.
+must_use_candidate = "allow"
+# Restriction lints worth enforcing in a library.
+# Leftover debugging output.
+dbg_macro    = "warn"
+print_stderr = "warn"
+print_stdout = "warn"
+# Unfinished code must not ship.
+todo          = "warn"
+unimplemented = "warn"
+# Panics on `Option`/`Result` in library code; tests are exempt via clippy.toml.
+unwrap_used = "warn"
+
+[workspace.lints.rustdoc]
+# A broken `[link]` in rustdoc is a documentation bug, not a warning.
+broken_intra_doc_links = "deny"
+
+# ------------------------------------------------------------------------------
+# Build profiles — release builds trade compile time for a smaller, faster
+# binary; the other profiles keep their defaults.
+# ------------------------------------------------------------------------------
+
+[profile.release]
+codegen-units = 1
+lto           = "fat"

@@ -1,0 +1,20 @@
+# ------------------------------------------------------------------------------
+# migration — the schema history of the axum example and a tiny CLI to run it.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "migration"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+publish.workspace      = true
+
+[dependencies]
+# The CLI reads `DATABASE_URL` from `.env` like the server does.
+dotenvy = "0.15"
+# The seed migration inserts through the entity so that the model stays the
+# single source of truth for the column list.
+entity              = { path = "../entity" }
+tokio               = { version = "1", features = ["macros", "rt-multi-thread"] }
+turso-orm           = { workspace = true }
+turso-orm-migration = { workspace = true }

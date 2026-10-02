@@ -1,0 +1,45 @@
+# ------------------------------------------------------------------------------
+# `turso-sql` — SQL AST and query builder for the Turso / SQLite dialect: typed
+# statements, expressions and values rendered to SQL text with bound parameters.
+#
+# Pure Rust with no engine access, so it can be used on its own. The optional
+# value types are the only dependencies; nothing else in the workspace.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "turso-sql"
+description            = "SQL AST and query builder for the Turso / SQLite dialect"
+documentation          = "https://docs.rs/turso-sql"
+authors.workspace      = true
+categories.workspace   = true
+edition.workspace      = true
+homepage.workspace     = true
+keywords.workspace     = true
+license.workspace      = true
+readme                 = "README.md"
+repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# Quality gates are centralized in the workspace root `Cargo.toml`.
+[lints]
+workspace = true
+
+[features]
+default = []
+# Value-type features: each one adds `From`/`TryFrom` conversions between
+# `Value` and the external type.
+with-chrono       = ["dep:chrono"]
+with-json         = ["dep:serde_json"]
+with-rust_decimal = ["dep:rust_decimal"]
+with-uuid         = ["dep:uuid"]
+
+[dependencies]
+chrono       = { workspace = true, optional = true }
+rust_decimal = { workspace = true, optional = true }
+serde_json   = { workspace = true, optional = true }
+uuid         = { workspace = true, optional = true }

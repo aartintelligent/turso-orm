@@ -1,0 +1,74 @@
+# ------------------------------------------------------------------------------
+# `turso-orm` — the async ORM for the Turso database: entities, active models,
+# relations and loaders, typed select/insert/update/delete queries, and the
+# derive macros that generate the entity boilerplate.
+#
+# Depends on `turso-sql`, `turso-orm-driver` and, behind the `macros` feature,
+# `turso-orm-macros`; the migration crate sits on top of this one.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "turso-orm"
+description            = "An async ORM dedicated to the Turso database, with a typed entity API"
+documentation          = "https://docs.rs/turso-orm"
+authors.workspace      = true
+categories.workspace   = true
+edition.workspace      = true
+homepage.workspace     = true
+keywords.workspace     = true
+license.workspace      = true
+readme                 = "README.md"
+repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# Quality gates are centralized in the workspace root `Cargo.toml`.
+[lints]
+workspace = true
+
+[features]
+default = ["macros", "with-chrono", "with-json", "with-uuid"]
+# The derive macros; on by default because hand-written entities are rare.
+macros = ["dep:turso-orm-macros"]
+# Engine features: forwarded through the driver to the `turso` client.
+fts        = ["turso-orm-driver/fts"]
+mimalloc   = ["turso-orm-driver/mimalloc"]
+sync       = ["turso-orm-driver/sync"]
+serverless = ["turso-orm-driver/serverless"]
+# Value-type features: map the external type to a column type here and
+# forward to the driver and `turso-sql` for decoding and `Value` conversions.
+with-chrono = ["turso-orm-driver/with-chrono", "turso-sql/with-chrono", "dep:chrono"]
+with-json = ["turso-orm-driver/with-json", "turso-sql/with-json", "dep:serde_json"]
+with-rust_decimal = [
+    "turso-orm-driver/with-rust_decimal",
+    "turso-sql/with-rust_decimal",
+    "dep:rust_decimal",
+]
+with-uuid = ["turso-orm-driver/with-uuid", "turso-sql/with-uuid", "dep:uuid"]
+
+[dependencies]
+async-trait      = { workspace = true }
+chrono           = { workspace = true, optional = true }
+futures-util     = { workspace = true }
+rust_decimal     = { workspace = true, optional = true }
+serde_json       = { workspace = true, optional = true }
+thiserror        = { workspace = true }
+tracing          = { workspace = true }
+turso-orm-driver = { workspace = true }
+# Optional so that `default-features = false` consumers skip the proc-macro
+# build; the generated code only needs this crate's `__private` re-exports.
+turso-orm-macros = { workspace = true, optional = true }
+turso-sql        = { workspace = true }
+uuid             = { workspace = true, optional = true }
+
+[dev-dependencies]
+chrono     = { workspace = true }
+serde_json = { workspace = true }
+tempfile   = { workspace = true }
+# `#[tokio::test]` and a real multi-threaded runtime for the entity tests.
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+uuid  = { workspace = true }

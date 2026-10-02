@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# ------------------------------------------------------------------------------
+# .agents/resume — runs when a cloud coding agent resumes a stopped session.
+#
+# Nothing to restore here: the environment is fully described by `setup`,
+# and the git hooks survive a pause. Kept so that the hook is explicit.
+# ------------------------------------------------------------------------------
+set -euo pipefail
+
+exit 0

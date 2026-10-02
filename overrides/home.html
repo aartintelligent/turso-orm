@@ -1,0 +1,57 @@
+{#-
+  Home page template: a full-viewport hero on the illustration in
+  `assets/turso/hero.png`, with the text top right and the code window bottom
+  right. Nothing follows the hero: the content and footer blocks are empty,
+  and `docs/index.md` only carries the front matter.
+-#}
+{% extends "main.html" %}
+
+{% block tabs %}
+  {{ super() }}
+  <section class="tx-hero" style="background-image: url('{{ 'assets/turso/hero.png' | url }}')">
+    <div class="md-grid md-typeset tx-hero__inner">
+      <div class="tx-hero__code">
+        <div class="tx-hero__window">
+          <div class="tx-hero__dots" aria-hidden="true"><span></span><span></span><span></span></div>
+          <pre class="highlight"><code><span class="cp">#[derive(Clone, Debug, DeriveEntityModel)]</span>
+<span class="cp">#[turso(table_name = "user")]</span>
+<span class="k">pub struct</span> <span class="nc">Model</span> {
+    <span class="cp">#[turso(primary_key)]</span>
+    <span class="k">pub</span> <span class="n">id</span>: <span class="kt">i32</span>,
+    <span class="cp">#[turso(unique)]</span>
+    <span class="k">pub</span> <span class="n">email</span>: <span class="nc">String</span>,
+}
+
+<span class="k">let</span> <span class="n">found</span> = <span class="n">user</span>::<span class="nc">Entity</span>::<span class="nf">find</span>()
+    .<span class="nf">filter</span>(<span class="n">user</span>::<span class="nc">Column</span>::<span class="nc">Email</span>.<span class="nf">contains</span>(<span class="s">"example"</span>))
+    .<span class="nf">one</span>(&amp;<span class="n">db</span>)
+    .<span class="k">await</span>?;</code></pre>
+        </div>
+      </div>
+      <div class="tx-hero__content">
+        <h1>Your entities,<br>Turso underneath.</h1>
+        <p class="tx-hero__lead">
+          The documentation of turso-orm: a guide from the first entity to
+          relations, transactions, migrations and web services, with examples
+          that CI compiles and runs.
+        </p>
+        <p class="tx-hero__note">
+          Independent and community-maintained. Not affiliated with or endorsed by
+          <a href="https://turso.tech/" target="_blank" rel="noopener">Turso</a>.
+        </p>
+        <div class="tx-hero__actions">
+          <a href="{{ 'guide/getting-started/' | url }}" class="md-button md-button--primary">
+            Get started
+          </a>
+          <a href="{{ 'overview/why/' | url }}" class="md-button">
+            Why Turso ORM
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+{% endblock %}
+
+{#- The home page is the hero alone. -#}
+{% block content %}{% endblock %}
+{% block footer %}{% endblock %}

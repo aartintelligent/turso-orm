@@ -1,0 +1,12 @@
+# ------------------------------------------------------------------------------
+# git — line endings and diff drivers; every text file is stored with LF.
+# ------------------------------------------------------------------------------
+
+# Normalize line endings to LF for every file git detects as text.
+* text=auto eol=lf
+# Rust sources get the `rust` diff driver for better hunk headers.
+*.rs text diff=rust
+*.toml text
+*.md text
+# The lockfile is generated; do not show its diff.
+*.lock text -diff

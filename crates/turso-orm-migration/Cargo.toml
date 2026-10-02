@@ -1,0 +1,50 @@
+# ------------------------------------------------------------------------------
+# `turso-orm-migration` — schema migrations for the ORM: the `MigrationTrait`
+# and `MigratorTrait` contracts, a migrations table, and `up`/`down` runners
+# that apply or revert migrations in order.
+#
+# Depends on `turso-orm` (with its `macros` feature) and on `turso-orm-macros`
+# directly, nothing else in the workspace.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "turso-orm-migration"
+description            = "Schema migrations for turso-orm"
+documentation          = "https://docs.rs/turso-orm-migration"
+authors.workspace      = true
+categories.workspace   = true
+edition.workspace      = true
+homepage.workspace     = true
+keywords.workspace     = true
+license.workspace      = true
+readme                 = "README.md"
+repository.workspace   = true
+rust-version.workspace = true
+version.workspace      = true
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+# Quality gates are centralized in the workspace root `Cargo.toml`.
+[lints]
+workspace = true
+
+[features]
+default = []
+
+[dependencies]
+async-trait = { workspace = true }
+thiserror   = { workspace = true }
+tracing     = { workspace = true }
+# `macros` is turned on so that depending on this crate alone also brings the
+# ORM derives; this crate's own code uses only the SQL builder, the connection
+# traits and `Schema`.
+turso-orm = { workspace = true, features = ["macros"] }
+# Depended on directly so that this crate can re-export `DeriveMigrationName`
+# without going through `turso-orm`.
+turso-orm-macros = { workspace = true }
+
+[dev-dependencies]
+# `#[tokio::test]` and a real multi-threaded runtime for the migration tests.
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question / discussion
+    url: https://github.com/aartintelligent/turso-orm/discussions
+    about: Ask usage questions or discuss ideas before opening an issue.
+  - name: Turso documentation
+    url: https://docs.turso.tech/
+    about: Questions about the Turso database itself belong upstream.

@@ -1,0 +1,66 @@
+# ------------------------------------------------------------------------------
+# release-plz — automated release PRs, changelogs, tags and crates.io publishes.
+#
+# All five crates share the `turso-orm` version group, so one release bumps
+# them together and every tag carries the same version. Each crate keeps its
+# own changelog, generated from conventional commits: `feat`, `fix`, `perf`,
+# `doc`, `refactor`, `deprecate` and `revert` are grouped under Keep a
+# Changelog headings; `chore`, `ci`, `build`, `test` and `style` are skipped.
+# Reference: https://release-plz.dev/docs/config
+# ------------------------------------------------------------------------------
+
+[workspace]
+changelog_update    = true
+dependencies_update = false
+git_release_enable  = true
+git_tag_enable      = true
+pr_labels           = ["release"]
+publish             = true
+release_always      = false
+semver_check        = true
+
+# Changelog preamble and the commit-message to section mapping.
+[changelog]
+header = """# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+"""
+commit_parsers = [
+    { message = "^feat", group = "Added" },
+    { message = "^fix", group = "Fixed" },
+    { message = "^perf", group = "Performance" },
+    { message = "^doc", group = "Documentation" },
+    { message = "^refactor", group = "Changed" },
+    { message = "^deprecate", group = "Deprecated" },
+    { message = "^(chore|ci|build|test|style)", skip = true },
+    { message = "^revert", group = "Reverted" },
+    { body = ".*security", group = "Security" },
+]
+
+[[package]]
+name           = "turso-sql"
+changelog_path = "crates/turso-sql/CHANGELOG.md"
+version_group  = "turso-orm"
+
+[[package]]
+name           = "turso-orm-driver"
+changelog_path = "crates/turso-orm-driver/CHANGELOG.md"
+version_group  = "turso-orm"
+
+[[package]]
+name           = "turso-orm-macros"
+changelog_path = "crates/turso-orm-macros/CHANGELOG.md"
+version_group  = "turso-orm"
+
+[[package]]
+name           = "turso-orm"
+changelog_path = "crates/turso-orm/CHANGELOG.md"
+version_group  = "turso-orm"
+
+[[package]]
+name           = "turso-orm-migration"
+changelog_path = "crates/turso-orm-migration/CHANGELOG.md"
+version_group  = "turso-orm"

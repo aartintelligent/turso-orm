@@ -1,0 +1,17 @@
+# ------------------------------------------------------------------------------
+# taplo — TOML formatter configuration for every manifest and tool config.
+#
+# `taplo fmt` aligns the `=` signs within a block; CI runs `taplo fmt --check`.
+# Reference: https://taplo.tamasfe.dev/
+# ------------------------------------------------------------------------------
+
+include = ["**/*.toml"]
+exclude = ["target/**", ".venv/**", "site/**"]
+
+[formatting]
+align_entries       = true
+allowed_blank_lines = 1
+array_auto_collapse = false
+column_width        = 100
+indent_string       = "    "
+reorder_keys        = false

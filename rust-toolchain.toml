@@ -1,0 +1,14 @@
+# ------------------------------------------------------------------------------
+# rustup — the development toolchain used locally and by CI.
+#
+# Pinned so that a new stable release cannot break local development or CI on
+# its own. Bump deliberately — Dependabot does not touch this file.
+#
+# This is not the MSRV: `rust-version` in Cargo.toml (1.94) is checked by a
+# separate CI job that overrides this pin through `RUSTUP_TOOLCHAIN`.
+# ------------------------------------------------------------------------------
+
+[toolchain]
+channel    = "1.97.1"
+components = ["clippy", "rustfmt", "rust-src"]
+profile    = "minimal"

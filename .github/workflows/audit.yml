@@ -1,0 +1,30 @@
+# ------------------------------------------------------------------------------
+# Security audit — RustSec advisories against the lockfile, independent of CI.
+#
+# Runs weekly, on manual dispatch, and whenever a manifest, the lockfile or
+# deny.toml changes; it opens an issue for each new advisory.
+# ------------------------------------------------------------------------------
+
+name: Security audit
+
+on:
+  schedule:
+    # Mondays at 06:00 UTC.
+    - cron: "0 6 * * 1"
+  push:
+    paths: ["**/Cargo.toml", "**/Cargo.lock", "deny.toml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  # Guards against known-vulnerable dependencies between regular CI runs.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
