@@ -26,7 +26,7 @@ resolver = "3"
 
 # Metadata inherited by every member through `<key>.workspace = true`.
 [workspace.package]
-authors    = ["Aurelien Andre <aartintelligent@gmail.com>"]
+authors    = ["Aurelien Andre <aurelien.andre@aartintelligent.fr>"]
 categories = ["database"]
 edition    = "2024"
 homepage   = "https://github.com/aartintelligent/turso-orm"
