@@ -9,12 +9,15 @@ runtime dependency; parameters are bound as SQLite storage classes.
 
 ## Part of turso-orm
 
-This crate is one layer of
-[turso-orm](https://github.com/aartintelligent/turso-orm), an async ORM for
-the Turso database. The repository holds the
-[design notes](https://aartintelligent.github.io/turso-orm/overview/design/),
-the [examples](https://github.com/aartintelligent/turso-orm/tree/main/examples)
-and the [issue tracker](https://github.com/aartintelligent/turso-orm/issues).
+This crate is one of the five that make up
+[turso-orm](https://github.com/aartintelligent/turso-orm), an async Rust ORM
+dedicated to the Turso database. Start with the
+[documentation](https://aartintelligent.github.io/turso-orm/), which walks
+from the first entity to relations, transactions and migrations. The
+[examples](https://github.com/aartintelligent/turso-orm/tree/main/examples)
+show complete programs, and the
+[issue tracker](https://github.com/aartintelligent/turso-orm/issues) is the
+place to report a problem.
 
 ## License
 
