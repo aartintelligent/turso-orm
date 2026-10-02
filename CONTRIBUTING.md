@@ -55,12 +55,21 @@ what keeps the history conforming to the release tooling.
 
 Every gate below must stay green. `just ci` chains the local ones in order;
 CI runs them all on every pull request and push to `main`, and `ci-ok` is the
-single required status check. A change that touches only documentation (the
-site under `docs/`, `mkdocs.yml`, `overrides/`, the READMEs and the other
-Markdown files) skips the build jobs: formatting, spelling and the commit lint
-still run, `ci-ok` still reports, and the site build of `docs.yml` guards the
-pages. Touching anything under `crates/`, `examples/`, a manifest, a lint
-configuration or a workflow runs everything.
+single required status check. The `changes` job sizes each run:
+
+- A change that touches only documentation (the site under `docs/`,
+  `mkdocs.yml`, `overrides/`, the READMEs, the other Markdown files and
+  `typos.toml`) skips the build jobs: formatting, spelling and the commit lint
+  still run, `ci-ok` still reports, and the site build of `docs.yml` guards
+  the pages.
+- A pull request that touches code (`crates/`, `examples/`, a manifest, a lint
+  configuration, a workflow) runs everything: the three platforms, the
+  feature powerset, the examples, the MSRV and the semver check.
+- A push to `main` and a release pull request (`release-plz-*`) run a reduced
+  set: Clippy, the Linux tests, the docs, cargo-deny and the coverage. The
+  push repeats a pull request already run against an up-to-date base, and a
+  release only bumps versions and the changelog; what remains feeds the build
+  cache and Codecov.
 
 | Gate | Recipe | What it guards |
 |---|---|---|

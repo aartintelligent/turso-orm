@@ -112,9 +112,11 @@ that a page includes.
 
 ## CI gates beyond `just ci`
 
-`.github/workflows/ci.yml` also runs these; mirror them locally before pushing. A pull request that
-touches only documentation skips the build jobs (the `changes` job decides, `ci-ok` accepts skipped
-jobs); anything under `crates/`, `examples/`, a manifest, a lint config or a workflow runs all of them:
+`.github/workflows/ci.yml` also runs these; mirror them locally before pushing. The `changes` job sizes
+each run: documentation-only changes skip the build jobs, pushes to `main` and `release-plz-*` pull
+requests run a reduced set (Clippy, Linux tests, docs, cargo-deny, coverage), and a pull request
+touching `crates/`, `examples/`, a manifest, a lint config or a workflow runs all of them; `ci-ok`
+accepts skipped jobs:
 
 - **Docs on nightly with `-D warnings`** (`just doc`) and `rustdoc::broken_intra_doc_links = deny`:
   every `[`link`]` in `///` must resolve. Feature-gated public items need
