@@ -105,7 +105,7 @@ quote = "1"
 # Parsing of derive input in `turso-orm-macros`. `full` is needed because
 # `#[turso(...)]` attribute values are parsed as expressions; `extra-traits`
 # gives the parsed types `Debug` for the attribute items and error paths.
-syn = { version = "2", features = ["full", "extra-traits"] }
+syn = { version = "3", features = ["full", "extra-traits"] }
 
 # Date and time value types behind the `with-chrono` feature of `turso-sql`,
 # `turso-orm-driver` and `turso-orm`. Only `std` is on — the `clock` feature
