@@ -251,14 +251,18 @@ applies from the very first commit.
 | `fix` | A bug fix | patch bump, "Fixed" |
 | `perf` | A performance improvement | patch bump, "Performance" |
 | `refactor` | A change that neither fixes a bug nor adds a feature | "Changed", no bump |
-| `docs` | Documentation only | "Documentation", no bump |
+| `docs` | Documentation only | "Documentation", patch bump when it touches a crate |
 | `deprecate` | Marks an API for removal | "Deprecated", no bump |
 | `revert` | Reverts a previous commit | "Reverted", no bump |
-| `test` | Adding or fixing tests | not listed |
-| `build` | Build system, dependencies, packaging | not listed |
-| `ci` | CI configuration | not listed |
-| `chore` | Maintenance that fits nowhere else | not listed |
-| `style` | Formatting, whitespace, no change in meaning | not listed |
+| `test` | Adding or fixing tests | not listed, no release |
+| `build` | Build system, dependencies, packaging | not listed, no release |
+| `ci` | CI configuration | not listed, no release |
+| `chore` | Maintenance that fits nowhere else | not listed, no release |
+| `style` | Formatting, whitespace, no change in meaning | not listed, no release |
+
+Only the listed types open a release pull request (`release_commits` in
+`release-plz.toml`); a dependency bump that users must receive is therefore a
+`fix(deps)`, not a `build(deps)`.
 
 Rules:
 
