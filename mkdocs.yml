@@ -97,9 +97,10 @@ markdown_extensions:
 plugins:
   - search
 
+# `home.css` is not listed: `overrides/home.html` links it on the home page
+# only, the way the theme's own home page loads its stylesheet.
 extra_css:
   - assets/stylesheets/brand.css
-  - assets/stylesheets/home.css
 
 extra:
   social:
