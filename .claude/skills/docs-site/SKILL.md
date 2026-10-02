@@ -28,6 +28,7 @@ mkdocs.yml                     Zensical configuration in MkDocs format: theme, e
 overrides/home.html            the whole landing page: a full-viewport hero on assets/turso/hero.png, text top right, code window bottom right, in the theme's `hero` block; links home.css itself; content and footer blocks are empty
 docs/assets/stylesheets/brand.css  the turso.tech palette (Aqua #4FF8D2, Dark Teal #183134, Bluewood #293945, Mirage #162129, Bunker #0D1318) mapped onto Material's variables; `primary`/`accent: custom` in mkdocs.yml hand the colours to it
 docs/assets/stylesheets/home.css  loaded by home.html only (not in extra_css); styles the hero (on phones, below 45em, without its background illustration) and hides `.md-content`, never `.md-main`, which holds the mobile navigation drawer
+docs/assets/stylesheets/extra.css layout fixes for every page on phones: table padding and code size, no heading permalink on touch screens, `.tx-diagram` wrapper that lets a wide Mermaid diagram scroll at its natural size
 docs/assets/turso/             the illustrated Turso logomark from https://turso.tech/brand (site logo and favicon) and the hero illustration `hero.png`, the site name is "Turso ORM"; keep the independence note next to them
 docs/index.md                  front matter only (template: home.html); the landing page has no Markdown body
 docs/overview/                 presentation pages, no code: why, features, use-cases, design, compatibility, roadmap

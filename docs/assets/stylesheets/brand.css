@@ -62,3 +62,20 @@
 [data-md-color-scheme="slate"] .md-typeset .grid.cards > ul > li:hover {
     border-color: var(--turso-aqua);
 }
+
+/* The primary button: aqua on Bunker, like turso.tech's call to action. The
+   theme fills it with the primary colour, which here is the page background,
+   so without this rule it would read as a plain outline. */
+.md-typeset .md-button--primary {
+    color: var(--turso-bunker);
+    border-color: var(--turso-aqua);
+    background-color: var(--turso-aqua);
+}
+
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button--primary:focus {
+    color: var(--turso-bunker);
+    border-color: var(--turso-aqua);
+    background-color: var(--turso-aqua);
+    filter: brightness(1.1);
+}
