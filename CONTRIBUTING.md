@@ -55,7 +55,12 @@ what keeps the history conforming to the release tooling.
 
 Every gate below must stay green. `just ci` chains the local ones in order;
 CI runs them all on every pull request and push to `main`, and `ci-ok` is the
-single required status check.
+single required status check. A change that touches only documentation (the
+site under `docs/`, `mkdocs.yml`, `overrides/`, the READMEs and the other
+Markdown files) skips the build jobs: formatting, spelling and the commit lint
+still run, `ci-ok` still reports, and the site build of `docs.yml` guards the
+pages. Touching anything under `crates/`, `examples/`, a manifest, a lint
+configuration or a workflow runs everything.
 
 | Gate | Recipe | What it guards |
 |---|---|---|
@@ -218,7 +223,9 @@ disable the hooks; `git commit --no-verify` is for genuine emergencies only.
 - Branch off `main` for every change: `feat/<slug>`, `fix/<slug>`,
   `docs/<slug>`, `chore/<slug>`.
 - Keep branches focused and short-lived; rebase on `main` rather than
-  merging it back in.
+  merging it back in. When GitHub asks to update the branch before merging,
+  pick "Update with rebase" from the button's menu: the default merge creates
+  a commit the commit lint rejects.
 - `release-plz` maintains its own `release-plz-*` branch and pull request;
   never edit it by hand.
 
