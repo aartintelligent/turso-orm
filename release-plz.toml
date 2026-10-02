@@ -2,15 +2,20 @@
 # release-plz — automated release PRs, changelogs, tags and crates.io publishes.
 #
 # All five crates share the `turso-orm` version group, so one release bumps
-# them together and every tag carries the same version. Each crate keeps its
-# own changelog, generated from conventional commits: `feat`, `fix`, `perf`,
-# `doc`, `refactor`, `deprecate` and `revert` are grouped under Keep a
-# Changelog headings; `chore`, `ci`, `build`, `test` and `style` are skipped.
-# Reference: https://release-plz.dev/docs/config
+# them together and every tag carries the same version. They also share one
+# changelog, `CHANGELOG.md` at the root, written on behalf of `turso-orm` and
+# fed with the commits of every crate through `changelog_include`: a crate
+# with no commit of its own in a release would otherwise get its header
+# re-inserted at every bump. Entries come from conventional commits: `feat`,
+# `fix`, `perf`, `doc`, `refactor`, `deprecate` and `revert` are grouped under
+# Keep a Changelog headings; `chore`, `ci`, `build`, `test` and `style` are
+# skipped. Reference: https://release-plz.dev/docs/config and
+# https://release-plz.dev/docs/extra/single-changelog
 # ------------------------------------------------------------------------------
 
 [workspace]
-changelog_update    = true
+# Off by default; only `turso-orm` writes the shared changelog, see below.
+changelog_update    = false
 dependencies_update = false
 git_release_enable  = true
 git_tag_enable      = true
@@ -41,26 +46,26 @@ commit_parsers = [
 ]
 
 [[package]]
-name           = "turso-sql"
-changelog_path = "crates/turso-sql/CHANGELOG.md"
-version_group  = "turso-orm"
+name          = "turso-sql"
+version_group = "turso-orm"
 
 [[package]]
-name           = "turso-orm-driver"
-changelog_path = "crates/turso-orm-driver/CHANGELOG.md"
-version_group  = "turso-orm"
+name          = "turso-orm-driver"
+version_group = "turso-orm"
 
 [[package]]
-name           = "turso-orm-macros"
-changelog_path = "crates/turso-orm-macros/CHANGELOG.md"
-version_group  = "turso-orm"
+name          = "turso-orm-macros"
+version_group = "turso-orm"
+
+# The crate that owns the shared changelog: its own commits plus those of the
+# four others, so that one section per version covers the whole workspace.
+[[package]]
+name              = "turso-orm"
+changelog_path    = "CHANGELOG.md"
+changelog_update  = true
+changelog_include = ["turso-sql", "turso-orm-driver", "turso-orm-macros", "turso-orm-migration"]
+version_group     = "turso-orm"
 
 [[package]]
-name           = "turso-orm"
-changelog_path = "crates/turso-orm/CHANGELOG.md"
-version_group  = "turso-orm"
-
-[[package]]
-name           = "turso-orm-migration"
-changelog_path = "crates/turso-orm-migration/CHANGELOG.md"
-version_group  = "turso-orm"
+name          = "turso-orm-migration"
+version_group = "turso-orm"

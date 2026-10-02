@@ -170,7 +170,8 @@ cargo run --manifest-path examples/axum_example/Cargo.toml
 `0.1` covers entities, CRUD, relations, transactions and migrations against
 in-memory, file, embedded-replica and serverless databases. The API may still
 move where Turso's own features ask for a different shape; such changes are
-called out in the changelogs.
+called out in the [changelog](CHANGELOG.md), one for the whole workspace since
+every crate shares the version.
 
 Planned next: a command-line tool (migrations, entity generation from an
 existing schema), typed helpers over the vector and full-text functions, and

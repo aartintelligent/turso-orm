@@ -290,7 +290,8 @@ keep both in sync with this table.
 ## Releasing
 
 Releases are automated. Merging to `main` lets `release-plz` open or update
-a release pull request with the bumped versions and changelogs. Merging that
+a release pull request with the bumped versions and the shared `CHANGELOG.md`
+at the root, one section per version for the whole workspace. Merging that
 pull request publishes all five crates to crates.io and creates the GitHub
 release and tags. Two secrets must be set on the repository:
 `CARGO_REGISTRY_TOKEN`, a crates.io token allowed to publish the five crates,
