@@ -1,13 +1,22 @@
 {#-
   Home page template: a full-viewport hero on the illustration in
   `assets/turso/hero.png`, with the text top right and the code window bottom
-  right. Nothing follows the hero: the content and footer blocks are empty,
-  and `docs/index.md` only carries the front matter.
+  right. It follows the theme's own layout: the hero goes in the `hero` block,
+  which the base template places inside the container before the main area,
+  and the main area stays in the page, because on narrow screens it holds the
+  navigation drawer that the header's menu button opens. `home.css` is loaded
+  here only, so its rules need no scoping, and it hides the empty content. On
+  phones the hero keeps its text, buttons and code window and drops only the
+  background illustration.
 -#}
 {% extends "main.html" %}
 
-{% block tabs %}
+{% block extrahead %}
   {{ super() }}
+  <link rel="stylesheet" href="{{ 'assets/stylesheets/home.css' | url }}">
+{% endblock %}
+
+{% block hero %}
   <section class="tx-hero" style="background-image: url('{{ 'assets/turso/hero.png' | url }}')">
     <div class="md-grid md-typeset tx-hero__inner">
       <div class="tx-hero__code">

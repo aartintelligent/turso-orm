@@ -1,9 +1,9 @@
 /* ---------------------------------------------------------------------------
-   Home page styles — the hero banner and the sections of `docs/index.md`.
+   Home page styles — the hero banner of `overrides/home.html`.
 
-   Every rule is scoped to `.tx-*` classes or to the home page body, so the
-   guide pages are untouched. Colours come from the Material palette
-   variables, which is what keeps the light and dark schemes consistent.
+   `home.html` links this file itself, so it is loaded on the home page only
+   and its rules never reach the guide pages; it is not in `extra_css`.
+   Colours come from the Turso palette variables of `brand.css`.
    --------------------------------------------------------------------------- */
 
 /* The hero fills the viewport under the header and the tabs. The
@@ -11,8 +11,11 @@
    text at the top and the code window at the bottom. */
 .tx-hero {
     display: flex;
-    /* The header and the tabs take 4.8rem; the rest of the viewport is the hero. */
+    /* The header and the tabs take 4.8rem; the rest of the viewport is the hero.
+       `svh` is the viewport with the mobile address bar shown, so the hero
+       never hides under it; `vh` is the fallback for older browsers. */
     min-height: calc(100vh - 4.8rem);
+    min-height: calc(100svh - 4.8rem);
     color: #ffffff;
     background-color: var(--turso-bunker);
     background-position: left center;
@@ -44,14 +47,35 @@
 }
 
 /* Narrow screens stack the text above the code window; the illustration
-   keeps covering the whole hero, cropped on its empty right side. */
+   keeps covering the whole hero, cropped on its empty right side. The tabs
+   are hidden at this width, so only the 2.4rem header sits above the hero. */
 @media screen and (max-width: 76.1875em) {
     .tx-hero {
+        min-height: calc(100vh - 2.4rem);
+        min-height: calc(100svh - 2.4rem);
+        position: relative;
         background-position: 30% center;
     }
 
+    /* The text now lies over the illustration: a dark veil, strongest at the
+       top where the title is, keeps it readable. */
+    .tx-hero::before {
+        position: absolute;
+        inset: 0;
+        content: "";
+        background: linear-gradient(
+            to bottom,
+            rgba(13, 19, 24, 0.85) 0%,
+            rgba(13, 19, 24, 0.6) 55%,
+            rgba(13, 19, 24, 0.3) 100%
+        );
+    }
+
     .tx-hero__inner {
-        grid-template-columns: 1fr;
+        position: relative;
+        /* `minmax(0, 1fr)`, not `1fr`: a plain `1fr` track grows to the
+           longest code line and pushes the whole hero past the screen. */
+        grid-template-columns: minmax(0, 1fr);
         grid-template-rows: auto auto;
         align-content: end;
     }
@@ -162,8 +186,39 @@
 .tx-hero__window .s  { color: #a5d6ff; }
 .tx-hero__window .cp { color: #9ca3af; }
 
-/* The home page has no content below the hero. */
-.tx-hero + .md-main,
-body:has(.tx-hero) .md-main {
+/* The home page is the hero alone. Only the empty content goes: the main
+   area stays, as on the theme's own home page, because on narrow screens it
+   holds the navigation drawer the header's menu button opens. The sidebars
+   are hidden by the `hide` front matter of `docs/index.md`. */
+.md-main__inner {
+    margin-top: 0;
+}
+
+.md-content {
     display: none;
+}
+
+/* Phones keep the hero's text, buttons and code window as on wide screens,
+   on the plain Bunker background: the illustration and its veil go. The
+   image is set inline by `home.html`, hence `!important`. */
+@media screen and (max-width: 44.9375em) {
+    .tx-hero {
+        background-image: none !important;
+    }
+
+    .tx-hero::before {
+        display: none;
+    }
+
+    .tx-hero__inner {
+        align-content: center;
+    }
+}
+
+/* Small phones: the title drops to 1.8rem, as on the theme's own home page
+   below 480px, so it keeps its two lines. */
+@media screen and (max-width: 29.9844em) {
+    .tx-hero h1 {
+        font-size: 1.8rem;
+    }
 }
