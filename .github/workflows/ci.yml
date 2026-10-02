@@ -84,11 +84,16 @@ jobs:
     env:
       RUSTDOCFLAGS: --cfg docsrs -D warnings
       # rust-toolchain.toml pins the stable toolchain, which rejects the
-      # `doc_cfg` feature; the nightly installed below must win.
-      RUSTUP_TOOLCHAIN: nightly
+      # `doc_cfg` feature; the nightly installed below must win. The date is
+      # pinned because the engine's dependencies use unstable allocator APIs
+      # that a newer nightly has already changed; bump it together with the
+      # `turso` version.
+      RUSTUP_TOOLCHAIN: nightly-2026-07-25
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-07-25
       - uses: Swatinem/rust-cache@v2
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -183,7 +188,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: crate-ci/committed@master
+      - uses: crate-ci/committed@v1.1.11
         with:
           args: -vv --no-merge-commit
           commits: HEAD~${{ github.event.pull_request.commits }}..HEAD
