@@ -45,4 +45,4 @@ you need PostgreSQL or MySQL tomorrow, a multi-database ORM is the right
 tool; if you build on Turso, this one is made for it.
 
 [:octicons-arrow-right-24: See the features](features.md){ .md-button }
-[:octicons-arrow-right-24: Get started](../guide/getting-started.md){ .md-button .md-button--primary }
+[:octicons-arrow-right-24: Quickstart](../guide/quickstart.md){ .md-button .md-button--primary }

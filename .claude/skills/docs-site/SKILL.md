@@ -31,7 +31,7 @@ docs/assets/stylesheets/home.css  styles scoped to the hero (`.tx-hero*`); the `
 docs/assets/turso/             the illustrated Turso logomark from https://turso.tech/brand (site logo and favicon) and the hero illustration `hero.png`, the site name is "Turso ORM"; keep the independence note next to them
 docs/index.md                  front matter only (template: home.html); the landing page has no Markdown body
 docs/overview/                 presentation pages, no code: why, features, use-cases, design, compatibility, roadmap
-docs/guide/getting-started.md  getting started; the only place a code snippet appears outside the technical pages
+docs/guide/quickstart.md       quickstart; the only place a code snippet appears outside the technical pages
 docs/guide/*.md                entities, queries (with error handling), relations, transactions, migrations
 docs/project/                  about, contributing, community, license
 ```

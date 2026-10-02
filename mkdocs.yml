@@ -124,7 +124,7 @@ nav:
       - Compatibility: overview/compatibility.md
       - Roadmap: overview/roadmap.md
   - Documentation:
-      - Getting started: guide/getting-started.md
+      - Quickstart: guide/quickstart.md
       - Entities: guide/entities.md
       - Queries: guide/queries.md
       - Relations: guide/relations.md

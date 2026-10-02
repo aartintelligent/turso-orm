@@ -1,4 +1,4 @@
-# Getting started
+# Quickstart
 
 The shortest path from an empty project to a first query. Each step names
 the page that explains it in depth; this one only gets you running.
