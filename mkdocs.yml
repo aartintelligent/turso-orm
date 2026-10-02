@@ -101,6 +101,7 @@ plugins:
 # only, the way the theme's own home page loads its stylesheet.
 extra_css:
   - assets/stylesheets/brand.css
+  - assets/stylesheets/extra.css
 
 extra:
   social:

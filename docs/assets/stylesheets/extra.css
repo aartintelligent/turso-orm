@@ -1,0 +1,44 @@
+/* ---------------------------------------------------------------------------
+   Layout fixes — rules that adjust the theme's layout on every page.
+
+   `brand.css` holds the colours; this file holds the few layout rules the
+   pages need on small screens. The home page has its own `home.css`.
+   --------------------------------------------------------------------------- */
+
+/* Touch screens have no hover, so the permalink of a heading never shows;
+   left in the flow, the hidden mark still wraps onto a line of its own
+   when the heading text fills the width, and leaves a blank line under it. */
+@media (hover: none) {
+    .md-typeset .headerlink {
+        display: none;
+    }
+}
+
+/* A diagram too wide for the screen scrolls inside `.tx-diagram` at its
+   natural size instead of shrinking until its labels cannot be read. The
+   theme draws diagrams in a closed shadow root, so the width is set on the
+   host element. */
+@media screen and (max-width: 44.9375em) {
+    .md-typeset .tx-diagram {
+        overflow-x: auto;
+    }
+
+    .md-typeset .tx-diagram .mermaid {
+        min-width: 34rem;
+    }
+}
+
+/* Phones: tighter cell padding and slightly smaller code in tables. The
+   columns get room for their identifiers, which the theme would otherwise
+   split mid-word (`PrimaryKe` / `y`) rather than let the table scroll. */
+@media screen and (max-width: 44.9375em) {
+    .md-typeset table:not([class]) th,
+    .md-typeset table:not([class]) td {
+        padding: 0.5em 0.6em;
+    }
+
+    .md-typeset td code,
+    .md-typeset th code {
+        font-size: 0.8em;
+    }
+}

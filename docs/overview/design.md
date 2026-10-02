@@ -6,6 +6,8 @@ with a link to the guide page that shows it in use.
 
 ## Layers
 
+<div class="tx-diagram" markdown>
+
 ```mermaid
 flowchart TB
     M["turso-orm-migration<br/><small>MigratorTrait, SchemaManager, bookkeeping table</small>"]
@@ -18,6 +20,8 @@ flowchart TB
     O -. generated code .-> X
     D --> T
 ```
+
+</div>
 
 Each crate depends only on the ones below it. `turso-sql` has no runtime
 dependency and binds parameters as the five SQLite storage classes.
