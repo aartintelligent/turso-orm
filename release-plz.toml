@@ -21,8 +21,13 @@ git_release_enable  = true
 git_tag_enable      = true
 pr_labels           = ["release"]
 publish             = true
-release_always      = false
-semver_check        = true
+# Only the commit types that appear in the changelog open a release: a release
+# made of skipped types alone would carry an empty changelog section, which
+# release-plz renders by re-inserting the header. For the version group, one
+# matching commit in any crate releases all five.
+release_commits = '^(feat|fix|perf|refactor|docs|deprecate|revert)(\(|!|:)'
+release_always  = false
+semver_check    = true
 
 # Changelog preamble and the commit-message to section mapping.
 [changelog]
