@@ -1,5 +1,3 @@
-<div align="center">
-
 # Turso ORM
 
 **Your entities, Turso underneath.**
@@ -11,16 +9,12 @@ entities without a server, a C toolchain or a dialect switch.
 [![CI](https://github.com/aartintelligent/turso-orm/actions/workflows/ci.yml/badge.svg)](https://github.com/aartintelligent/turso-orm/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/turso-orm.svg)](https://crates.io/crates/turso-orm)
 [![docs.rs](https://img.shields.io/docsrs/turso-orm)](https://docs.rs/turso-orm)
-[![Guide](https://img.shields.io/badge/guide-GitHub%20Pages-teal.svg)](https://aartintelligent.github.io/turso-orm/)
 [![MSRV](https://img.shields.io/badge/MSRV-1.94-blue.svg)](Cargo.toml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
 [Guide](https://aartintelligent.github.io/turso-orm/) ·
-[Getting started](https://aartintelligent.github.io/turso-orm/guide/getting-started/) ·
 [API reference](https://docs.rs/turso-orm) ·
 [Examples](examples)
-
-</div>
 
 turso-orm is an independent, community-maintained project. It is not
 affiliated with, sponsored or endorsed by Turso.
