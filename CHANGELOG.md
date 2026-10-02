@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.2...turso-orm-v0.1.3) - 2026-10-02
+
+### Documentation
+
+- plain README header and clearer crate README footers ([#17](https://github.com/aartintelligent/turso-orm/pull/17))
+
 ## [0.1.2](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.1...turso-orm-v0.1.2) - 2026-10-02
 
 No user-facing change: the crates were republished after the workspace moved to this single
