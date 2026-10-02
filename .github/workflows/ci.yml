@@ -4,7 +4,8 @@
 # Each job guards one thing; `ci-ok` aggregates them into the single status
 # check that branch protection requires. The `justfile` mirrors these recipes
 # for local runs. The `changes` job skips the build jobs when a change touches
-# only documentation; formatting, spelling and the commit lint always run.
+# only documentation, and keeps a reduced set on pushes to `main` and release
+# pull requests; formatting, spelling and the commit lint always run.
 # ------------------------------------------------------------------------------
 
 name: CI
@@ -29,15 +30,24 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  # Decides whether the build jobs are needed: a change that touches only
-  # documentation (the site, the READMEs, the Markdown guides) skips them and
-  # `ci-ok` still reports, so the required check stays green. A merge group
-  # has no base to diff against and always runs everything.
+  # Decides how much of the pipeline a run needs. `code` is false for a change
+  # that touches only documentation (the site, the READMEs, the Markdown
+  # guides): the build jobs are skipped and `ci-ok` still reports, so the
+  # required check stays green. `full` is true for a pull request and a merge
+  # group, the only places where content is seen before it becomes final; a
+  # push to `main` repeats a pull request already run against an up-to-date
+  # base, and a release pull request only bumps versions and the changelog,
+  # so both keep the Linux build, the lints, the docs and the coverage that
+  # feed the cache and Codecov, and skip the other platforms, the feature
+  # powerset, the examples and the semver check. A merge group has no base to
+  # diff against and always runs everything.
   changes:
     name: Changes
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.decide.outputs.code }}
+      full: ${{ steps.decide.outputs.full }}
+      os: ${{ steps.decide.outputs.os }}
     steps:
       - uses: actions/checkout@v7
       - id: filter
@@ -54,12 +64,23 @@ jobs:
               - "clippy.toml"
               - "rustfmt.toml"
               - "rust-toolchain.toml"
-              - "typos.toml"
               - ".taplo.toml"
               - "justfile"
               - ".github/workflows/**"
       - id: decide
-        run: echo "code=${{ github.event_name == 'merge_group' || steps.filter.outputs.code == 'true' }}" >> "$GITHUB_OUTPUT"
+        env:
+          CODE: ${{ github.event_name == 'merge_group' || steps.filter.outputs.code == 'true' }}
+          FULL: ${{ github.event_name == 'merge_group' || (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release-plz-')) }}
+        run: |
+          {
+            echo "code=$CODE"
+            echo "full=$FULL"
+            if [ "$FULL" = "true" ]; then
+              echo 'os=["ubuntu-latest", "macos-latest", "windows-latest"]'
+            else
+              echo 'os=["ubuntu-latest"]'
+            fi
+          } >> "$GITHUB_OUTPUT"
 
   # Guards formatting: `cargo fmt` for Rust and `taplo` for TOML.
   fmt:
@@ -101,7 +122,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.changes.outputs.os) }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -142,7 +163,7 @@ jobs:
   msrv:
     name: MSRV
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -163,7 +184,7 @@ jobs:
   features:
     name: Feature powerset
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -181,7 +202,7 @@ jobs:
   examples:
     name: Examples
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -247,7 +268,7 @@ jobs:
     name: Semver
     needs: [changes]
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' && needs.changes.outputs.full == 'true'
     steps:
       - uses: actions/checkout@v7
       # The baseline is the version published on crates.io, which does not
