@@ -200,13 +200,20 @@ jobs:
     name: Semver
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
-    # The baseline is the version published on crates.io, so the check cannot
-    # pass before the first release; until then it reports without failing the
-    # pull request. It is not part of `ci-ok` either way.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
-      - uses: obi1kenobi/cargo-semver-checks-action@v2
+      # The baseline is the version published on crates.io, which does not
+      # exist before the first release; the check is skipped until then
+      # rather than reported as a failure.
+      - id: baseline
+        run: |
+          if curl --silent --fail --output /dev/null https://crates.io/api/v1/crates/turso-orm; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.baseline.outputs.published == 'true'
+        uses: obi1kenobi/cargo-semver-checks-action@v2
 
   # Reports test coverage to Codecov; informational, never blocks a merge.
   coverage:
