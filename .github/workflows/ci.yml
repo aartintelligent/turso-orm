@@ -3,7 +3,8 @@
 #
 # Each job guards one thing; `ci-ok` aggregates them into the single status
 # check that branch protection requires. The `justfile` mirrors these recipes
-# for local runs.
+# for local runs. The `changes` job skips the build jobs when a change touches
+# only documentation; formatting, spelling and the commit lint always run.
 # ------------------------------------------------------------------------------
 
 name: CI
@@ -28,6 +29,38 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  # Decides whether the build jobs are needed: a change that touches only
+  # documentation (the site, the READMEs, the Markdown guides) skips them and
+  # `ci-ok` still reports, so the required check stays green. A merge group
+  # has no base to diff against and always runs everything.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.decide.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: filter
+        if: github.event_name != 'merge_group'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            code:
+              - "crates/**"
+              - "examples/**"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "deny.toml"
+              - "clippy.toml"
+              - "rustfmt.toml"
+              - "rust-toolchain.toml"
+              - "typos.toml"
+              - ".taplo.toml"
+              - "justfile"
+              - ".github/workflows/**"
+      - id: decide
+        run: echo "code=${{ github.event_name == 'merge_group' || steps.filter.outputs.code == 'true' }}" >> "$GITHUB_OUTPUT"
+
   # Guards formatting: `cargo fmt` for Rust and `taplo` for TOML.
   fmt:
     name: Format
@@ -46,6 +79,8 @@ jobs:
   # Guards the lint policy: clippy on every target with warnings as errors.
   clippy:
     name: Clippy
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -60,6 +95,8 @@ jobs:
   # Guards behaviour: the test suite and the doctests on all three platforms.
   test:
     name: Test (${{ matrix.os }})
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -80,6 +117,8 @@ jobs:
   # Guards the documentation: builds with the docs.rs flags, warnings as errors.
   docs:
     name: Docs (docs.rs settings)
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     env:
       RUSTDOCFLAGS: --cfg docsrs -D warnings
@@ -102,6 +141,8 @@ jobs:
   # Guards the MSRV: compiles on exactly the `rust-version` from Cargo.toml.
   msrv:
     name: MSRV
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -121,6 +162,8 @@ jobs:
   # Guards feature independence: every feature pair compiles on its own.
   features:
     name: Feature powerset
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -137,6 +180,8 @@ jobs:
   # and tested on its own; the console example must also run to completion.
   examples:
     name: Examples
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -163,6 +208,8 @@ jobs:
   # Guards the supply chain: advisories, licences, bans and sources (deny.toml).
   deny:
     name: cargo-deny
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -198,8 +245,9 @@ jobs:
   # Guards the public API: flags semver-breaking changes on pull requests.
   semver:
     name: Semver
+    needs: [changes]
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     steps:
       - uses: actions/checkout@v7
       # The baseline is the version published on crates.io, which does not
@@ -218,6 +266,8 @@ jobs:
   # Reports test coverage to Codecov; informational, never blocks a merge.
   coverage:
     name: Coverage
+    needs: [changes]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -238,13 +288,16 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # Single required status check for branch protection — green only when every
-  # job it needs succeeded.
+  # Single required status check for branch protection — green only when the
+  # detection succeeded and every job it needs either succeeded or was skipped
+  # because the change touched no code.
   ci-ok:
     name: CI OK
     if: always()
-    needs: [fmt, clippy, test, docs, msrv, features, examples, deny, typos]
+    needs: [changes, fmt, clippy, test, docs, msrv, features, examples, deny, typos]
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo '${{ toJSON(needs) }}' | jq -e 'to_entries | all(.value.result == "success")'
+          echo '${{ toJSON(needs) }}' | jq -e '
+            .changes.result == "success"
+            and (to_entries | all(.value.result == "success" or .value.result == "skipped"))'
