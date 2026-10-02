@@ -50,17 +50,23 @@ commit_parsers = [
     { body = ".*security", group = "Security" },
 ]
 
+# GitHub and the documentation site show the release marked "latest", and
+# the last one created wins by default; only the `turso-orm` release is marked
+# so, so that the site header always shows `turso-orm-v<version>`.
 [[package]]
-name          = "turso-sql"
-version_group = "turso-orm"
+name               = "turso-sql"
+git_release_latest = false
+version_group      = "turso-orm"
 
 [[package]]
-name          = "turso-orm-driver"
-version_group = "turso-orm"
+name               = "turso-orm-driver"
+git_release_latest = false
+version_group      = "turso-orm"
 
 [[package]]
-name          = "turso-orm-macros"
-version_group = "turso-orm"
+name               = "turso-orm-macros"
+git_release_latest = false
+version_group      = "turso-orm"
 
 # The crate that owns the shared changelog: its own commits plus those of the
 # four others, so that one section per version covers the whole workspace.
@@ -72,5 +78,6 @@ changelog_include = ["turso-sql", "turso-orm-driver", "turso-orm-macros", "turso
 version_group     = "turso-orm"
 
 [[package]]
-name          = "turso-orm-migration"
-version_group = "turso-orm"
+name               = "turso-orm-migration"
+git_release_latest = false
+version_group      = "turso-orm"
