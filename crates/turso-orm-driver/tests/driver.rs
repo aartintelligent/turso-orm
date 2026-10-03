@@ -15,7 +15,7 @@
 
 use futures_util::TryStreamExt;
 use turso_orm_driver::{
-    ConnectOptions, ConnectionTrait, ConstraintKind, Database, StreamTrait, Transaction,
+    ConnectOptions, ConnectionTrait, ConstraintKind, Database, ErrorKind, StreamTrait, Transaction,
     TransactionMode, TransactionTrait,
 };
 use turso_sql::prelude::*;
@@ -192,6 +192,56 @@ async fn transactions_savepoints_and_drop() {
         .await
         .expect("closure");
     assert_eq!(n, 3);
+}
+
+/// Asserts that a call failed with a misuse error.
+fn misuse<T: std::fmt::Debug>(result: turso_orm_driver::Result<T>) {
+    assert_eq!(result.expect_err("misuse").kind(), ErrorKind::Misuse);
+}
+
+/// Only the innermost open transaction may act: a parent fails with a
+/// misuse error while a nested transaction is open, and the work of a
+/// failed parent is rolled back rather than committed.
+#[tokio::test]
+async fn nested_transactions_act_innermost_only() {
+    let db = setup().await;
+
+    // A parent cannot run a statement or begin a sibling while a nested
+    // transaction is open, and recovers once it is finished.
+    let txn = db.begin().await.expect("begin");
+    let sp = txn.begin().await.expect("savepoint");
+    misuse(txn.execute(insert("parent", None)).await);
+    misuse(txn.begin().await);
+    sp.execute(insert("child", None)).await.expect("child");
+    sp.rollback().await.expect("rollback sp");
+    txn.execute(insert("parent", None)).await.expect("parent");
+    txn.commit().await.expect("commit");
+    assert_eq!(count(&db).await, 1);
+
+    // Committing a top level with a nested transaction open fails and rolls
+    // everything back; the orphaned savepoint can no longer write.
+    let txn = db.begin().await.expect("begin");
+    txn.execute(insert("lost", None)).await.expect("lost");
+    let sp = txn.begin().await.expect("savepoint");
+    misuse(txn.commit().await);
+    misuse(sp.execute(insert("orphan", None)).await);
+    misuse(sp.rollback().await);
+    assert_eq!(count(&db).await, 1);
+
+    // Rolling back a savepoint with a deeper one open fails and drops it
+    // unfinished: both are rolled back before the parent's next statement,
+    // and the deeper handle can neither write nor disturb the parent.
+    let txn = db.begin().await.expect("begin");
+    let sp = txn.begin().await.expect("savepoint");
+    let inner = sp.begin().await.expect("inner savepoint");
+    inner.execute(insert("inner", None)).await.expect("inner");
+    misuse(sp.rollback().await);
+    assert_eq!(count(&txn).await, 1);
+    misuse(inner.execute(insert("stale", None)).await);
+    drop(inner);
+    txn.execute(insert("kept", None)).await.expect("kept");
+    txn.commit().await.expect("commit");
+    assert_eq!(count(&db).await, 2);
 }
 
 /// Rows stream in order from the pool, where the stream carries its own

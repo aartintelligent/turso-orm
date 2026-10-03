@@ -78,6 +78,14 @@ This is how a service can attempt an optional step inside a larger unit
 of work and discard just that step on failure. Savepoints nest to any
 depth; `Transaction::depth()` tells how deep a handle is.
 
+The engine keeps a single stack of savepoints, so only the innermost open
+transaction may act. While `sp` is open, running a statement through
+`txn`, beginning a second savepoint from it or committing it fails with
+an `ErrorKind::Misuse` error: the statement would otherwise run inside
+`sp` and share its fate. Finish or drop the nested transaction first. A
+parent that fails this way on `commit` or `rollback` is rolled back, and
+a nested handle whose top level has finished can no longer run anything.
+
 ## The closure form
 
 Most transactions follow the same script: begin, run some statements,
@@ -110,7 +118,7 @@ two ways:
   returning it to the pool. The engine rolls back whatever that connection
   held when it closes, and the pool opens a fresh connection on the next
   acquire. Nothing leaks into another borrower.
-- A dropped **nested** transaction records its depth. The parent runs
+- A dropped **nested** transaction records its savepoint. The parent runs
   `ROLLBACK TO SAVEPOINT` before its next statement, so the abandoned
   work is undone before anything else happens on that connection.
 
