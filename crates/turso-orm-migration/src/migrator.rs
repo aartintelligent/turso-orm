@@ -4,7 +4,9 @@
 //! [`MigratorTrait::migration_table_name`] says otherwise, with one row per
 //! applied migration. Every operation starts by making sure that table
 //! exists and reading it, then walks the declared migrations in order (or in
-//! reverse for `down`) and skips the ones whose state already matches.
+//! reverse for `down`) and skips the ones whose state already matches. The
+//! state is checked again once each migration holds the write lock, so two
+//! migrators started together never run the same migration twice.
 //!
 //! Each migration runs inside its own `BEGIN IMMEDIATE` transaction, and
 //! the bookkeeping insert or delete is issued on that same transaction
@@ -130,6 +132,12 @@ pub trait MigratorTrait: Send {
             // `IMMEDIATE` takes the write lock now rather than at the first
             // write, so the migration cannot hit a busy error halfway.
             let txn = db.begin_with_mode(TransactionMode::Immediate).await?;
+            // Another migrator may have applied it since the list was read;
+            // the write lock now held makes this check final.
+            if is_applied(&txn, Self::migration_table_name(), migration.name()).await? {
+                txn.rollback().await?;
+                continue;
+            }
             {
                 let manager = SchemaManager::new(&txn);
                 migration.up(&manager).await?;
@@ -172,6 +180,12 @@ pub trait MigratorTrait: Send {
             }
             tracing::info!(name = migration.name(), "reverting migration");
             let txn = db.begin_with_mode(TransactionMode::Immediate).await?;
+            // Another migrator may have reverted it since the list was read;
+            // the write lock now held makes this check final.
+            if !is_applied(&txn, Self::migration_table_name(), migration.name()).await? {
+                txn.rollback().await?;
+                continue;
+            }
             {
                 let manager = SchemaManager::new(&txn);
                 migration.down(&manager).await?;
@@ -249,4 +263,27 @@ pub trait MigratorTrait: Send {
     async fn reset(db: &Database) -> Result<(), DbErr> {
         Self::down(db, None).await
     }
+}
+
+/// Whether `version` has a row in the bookkeeping table `table`.
+///
+/// Read inside the migration's transaction, so that the answer reflects
+/// what other migrators committed before the write lock was taken.
+///
+/// # Errors
+///
+/// Returns [`DbErr::Driver`] when the query fails.
+async fn is_applied<C: ConnectionTrait>(
+    conn: &C,
+    table: &'static str,
+    version: &str,
+) -> Result<bool, DbErr> {
+    let stmt = Query::select()
+        .column("version")
+        .from(table)
+        .and_where(Expr::col("version").eq(Expr::val(version)));
+    Ok(conn
+        .query_one(turso_orm::Build::to_statement(&stmt))
+        .await?
+        .is_some())
 }
