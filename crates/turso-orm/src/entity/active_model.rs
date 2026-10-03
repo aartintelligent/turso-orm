@@ -401,6 +401,11 @@ pub trait ActiveModelTrait: Clone + Send + Sync + std::fmt::Debug + Default {
 
 /// Hooks around writes, with no-op defaults.
 ///
+/// They run around the methods of [`ActiveModelTrait`] only (`insert`,
+/// `update`, `save` and `delete`); statements built from the entity, such
+/// as `Entity::insert` or `Entity::delete_many`, bypass them. An error from an `after_*` hook is returned once the
+/// statement has run, so outside a transaction the write stays applied.
+///
 /// Implement with an empty body to accept the defaults:
 ///
 /// ```ignore
