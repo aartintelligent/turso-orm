@@ -68,7 +68,7 @@ mod manager;
 mod migrator;
 
 pub use manager::SchemaManager;
-pub use migrator::{MigrationStatus, MigratorTrait};
+pub use migrator::{MigrationIssue, MigrationStatus, MigratorTrait};
 
 pub use async_trait::async_trait;
 pub use turso_orm;
@@ -107,8 +107,8 @@ pub trait MigrationTrait: MigrationName + Send + Sync {
 /// Everything a migration module needs, meant to be glob-imported.
 pub mod prelude {
     pub use crate::{
-        DeriveMigrationName, MigrationName, MigrationStatus, MigrationTrait, MigratorTrait,
-        SchemaManager, async_trait,
+        DeriveMigrationName, MigrationIssue, MigrationName, MigrationStatus, MigrationTrait,
+        MigratorTrait, SchemaManager, async_trait,
     };
     pub use turso_orm::entity::EntityTrait;
     pub use turso_orm::sql::{

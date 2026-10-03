@@ -7,7 +7,10 @@
 //! for the full `up`, `down`, `status`, `refresh`, `fresh` and `reset`
 //! cycle, and a failing one for the rollback test. Two more report a stale
 //! list of applied migrations, standing in for a migrator that read the
-//! bookkeeping table before another one committed.
+//! bookkeeping table before another one committed. A fourth, independent
+//! migration and a last group of migrators declare a duplicate, drop a
+//! migration or add one before an applied one, to cover the validation of
+//! the declared list.
 //!
 //! ```text
 //! cargo test -p turso-orm-migration --test migrate
@@ -104,6 +107,32 @@ mod m20240103_000001_failing {
                 )
                 .await?;
             Err(DbErr::Migration("boom".into()))
+        }
+    }
+}
+
+/// Creates an `audit` table, independent of the other migrations.
+mod m20240104_000001_create_audit {
+    use turso_orm_migration::prelude::*;
+
+    /// The migration.
+    #[derive(DeriveMigrationName)]
+    pub(crate) struct Migration;
+
+    #[async_trait]
+    impl MigrationTrait for Migration {
+        async fn up(&self, manager: &SchemaManager<'_>) -> Result<(), DbErr> {
+            manager
+                .create_table(
+                    Table::create()
+                        .table("audit")
+                        .col(ColumnDef::integer("id").primary_key()),
+                )
+                .await
+        }
+
+        async fn down(&self, manager: &SchemaManager<'_>) -> Result<(), DbErr> {
+            manager.drop_table(Table::drop().table("audit")).await
         }
     }
 }
@@ -286,5 +315,179 @@ async fn stale_migrator_skips_settled_migrations() {
             .await
             .expect("applied")
             .is_empty()
+    );
+}
+
+/// A migrator that declares the same migration twice.
+struct DuplicateMigrator;
+
+#[async_trait]
+impl MigratorTrait for DuplicateMigrator {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        vec![
+            Box::new(m20240101_000001_create_user::Migration),
+            Box::new(m20240101_000001_create_user::Migration),
+        ]
+    }
+}
+
+/// An older declaration of [`Migrator`] that lacks its second migration.
+struct FirstOnly;
+
+#[async_trait]
+impl MigratorTrait for FirstOnly {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        vec![Box::new(m20240101_000001_create_user::Migration)]
+    }
+
+    fn migration_table_name() -> &'static str {
+        Migrator::migration_table_name()
+    }
+}
+
+/// [`FirstOnly`] in strict mode.
+struct StrictFirstOnly;
+
+#[async_trait]
+impl MigratorTrait for StrictFirstOnly {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        FirstOnly::migrations()
+    }
+
+    fn migration_table_name() -> &'static str {
+        Migrator::migration_table_name()
+    }
+
+    fn strict() -> bool {
+        true
+    }
+}
+
+/// A migrator that only knows the `audit` migration.
+struct AuditOnly;
+
+#[async_trait]
+impl MigratorTrait for AuditOnly {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        vec![Box::new(m20240104_000001_create_audit::Migration)]
+    }
+}
+
+/// A migrator that declares `create_user` before the `audit` migration.
+struct AuditLast;
+
+#[async_trait]
+impl MigratorTrait for AuditLast {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        vec![
+            Box::new(m20240101_000001_create_user::Migration),
+            Box::new(m20240104_000001_create_audit::Migration),
+        ]
+    }
+}
+
+/// [`AuditLast`] in strict mode.
+struct StrictAuditLast;
+
+#[async_trait]
+impl MigratorTrait for StrictAuditLast {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        AuditLast::migrations()
+    }
+
+    fn strict() -> bool {
+        true
+    }
+}
+
+/// Whether an error reports a duplicate migration name.
+fn is_duplicate(err: &DbErr) -> bool {
+    matches!(err, DbErr::Migration(msg) if msg.contains("duplicate"))
+}
+
+/// A duplicate migration name fails every operation before the database is touched.
+#[tokio::test]
+async fn duplicate_names_are_rejected() {
+    let db = Database::connect(ConnectOptions::in_memory())
+        .await
+        .expect("open");
+    assert!(is_duplicate(
+        &DuplicateMigrator::up(&db, None).await.expect_err("up")
+    ));
+    assert!(is_duplicate(
+        &DuplicateMigrator::down(&db, None).await.expect_err("down")
+    ));
+    assert!(is_duplicate(
+        &DuplicateMigrator::fresh(&db).await.expect_err("fresh")
+    ));
+    assert!(is_duplicate(
+        &DuplicateMigrator::status(&db).await.expect_err("status")
+    ));
+    assert!(is_duplicate(
+        &DuplicateMigrator::check(&db).await.expect_err("check")
+    ));
+    // Not even the bookkeeping table was created.
+    let txn = db.begin().await.expect("begin");
+    let manager = SchemaManager::new(&txn);
+    assert!(!manager.has_table("turso_migrations").await.expect("has"));
+    assert!(!manager.has_table("user").await.expect("has"));
+    txn.rollback().await.expect("rollback");
+}
+
+/// An applied migration missing from the declarations is reported; `up` warns about it by default and refuses it in strict mode, as does a strict `refresh` before reverting anything.
+#[tokio::test]
+async fn unknown_applied_migration_warns_or_fails() {
+    let db = Database::connect(ConnectOptions::in_memory())
+        .await
+        .expect("open");
+    Migrator::up(&db, None).await.expect("up");
+    let unknown = [MigrationIssue::Unknown(
+        "m20240102_000001_add_name".to_owned(),
+    )];
+    assert_eq!(FirstOnly::check(&db).await.expect("check"), unknown);
+
+    FirstOnly::up(&db, None).await.expect("lenient up");
+    let err = StrictFirstOnly::up(&db, None).await.expect_err("strict up");
+    assert!(matches!(err, DbErr::Migration(ref msg) if msg.contains("m20240102_000001_add_name")));
+    StrictFirstOnly::refresh(&db)
+        .await
+        .expect_err("strict refresh");
+    assert_eq!(
+        Migrator::get_applied_migrations(&db)
+            .await
+            .expect("applied")
+            .len(),
+        2
+    );
+}
+
+/// A pending migration declared before an applied one is reported; `up` applies it by default and refuses to run anything in strict mode.
+#[tokio::test]
+async fn out_of_order_migration_warns_or_fails() {
+    let db = Database::connect(ConnectOptions::in_memory())
+        .await
+        .expect("open");
+    AuditOnly::up(&db, None).await.expect("audit up");
+    let out_of_order = [MigrationIssue::OutOfOrder(
+        "m20240101_000001_create_user".to_owned(),
+    )];
+    assert_eq!(AuditLast::check(&db).await.expect("check"), out_of_order);
+
+    StrictAuditLast::up(&db, None).await.expect_err("strict up");
+    assert_eq!(
+        AuditLast::get_applied_migrations(&db)
+            .await
+            .expect("applied"),
+        ["m20240104_000001_create_audit"]
+    );
+
+    AuditLast::up(&db, None).await.expect("lenient up");
+    assert!(AuditLast::check(&db).await.expect("check").is_empty());
+    assert!(
+        AuditLast::status(&db)
+            .await
+            .expect("status")
+            .iter()
+            .all(|s| s.applied)
     );
 }

@@ -13,6 +13,17 @@
 //! before the commit. Taking the write lock up front avoids a busy error
 //! mid-migration, and bundling the version row with the schema change means
 //! a failure leaves neither a partial schema nor a misleading version row.
+//!
+//! The declared list is validated before anything runs. A duplicate name is
+//! always an error, since the bookkeeping table could not tell the two
+//! apart. A migration recorded as applied but no longer declared, or a
+//! pending one declared before an applied one, is a [`MigrationIssue`]:
+//! legitimate after a deployment is rolled back or two branches are merged,
+//! so `up` only warns about it unless [`MigratorTrait::strict`] says
+//! otherwise.
+
+use std::collections::HashSet;
+use std::fmt;
 
 use async_trait::async_trait;
 use turso_orm::sql::{ColumnDef, Expr, Order, Query, Table};
@@ -33,6 +44,33 @@ pub struct MigrationStatus {
     pub applied: bool,
 }
 
+/// A mismatch between the declared migrations and the bookkeeping table,
+/// reported by [`MigratorTrait::check`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum MigrationIssue {
+    /// A migration recorded as applied that [`MigratorTrait::migrations`]
+    /// no longer declares, for example after a deployment was rolled back
+    /// to an older binary or a migration was renamed.
+    Unknown(String),
+    /// A pending migration declared before one that is already applied,
+    /// typically after two branches that each added a migration were
+    /// merged; `up` applies it after the later one.
+    OutOfOrder(String),
+}
+
+impl fmt::Display for MigrationIssue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unknown(name) => write!(f, "applied migration `{name}` is not declared"),
+            Self::OutOfOrder(name) => write!(
+                f,
+                "pending migration `{name}` is declared before an applied one"
+            ),
+        }
+    }
+}
+
 /// Lists migrations and applies or reverts them in order.
 ///
 /// Implement [`migrations`](Self::migrations) only; every other method has
@@ -48,6 +86,33 @@ pub trait MigratorTrait: Send {
     /// keep the table name of a schema that was migrated by another tool.
     fn migration_table_name() -> &'static str {
         DEFAULT_TABLE
+    }
+
+    /// Whether a [`MigrationIssue`] makes [`up`](Self::up) fail rather than
+    /// warn; `false` by default.
+    ///
+    /// Leave it off where an older binary may run against a database that
+    /// a newer one migrated, which leaves unknown migrations behind.
+    fn strict() -> bool {
+        false
+    }
+
+    /// Lists the mismatches between the declared migrations and the
+    /// bookkeeping table, without changing anything.
+    ///
+    /// Unknown migrations come first, in application order, then
+    /// out-of-order ones, in declaration order.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DbErr::Migration`] when two declared migrations share a
+    /// name; the errors of
+    /// [`get_applied_migrations`](Self::get_applied_migrations).
+    async fn check(db: &Database) -> Result<Vec<MigrationIssue>, DbErr> {
+        let migrations = Self::migrations();
+        ensure_unique(&migrations)?;
+        let applied = Self::get_applied_migrations(db).await?;
+        Ok(find_issues(&migrations, &applied))
     }
 
     /// Creates the bookkeeping table if it does not exist yet.
@@ -95,10 +160,14 @@ pub trait MigratorTrait: Send {
     ///
     /// # Errors
     ///
-    /// Returns the errors of [`get_applied_migrations`](Self::get_applied_migrations).
+    /// Returns [`DbErr::Migration`] when two declared migrations share a
+    /// name; the errors of
+    /// [`get_applied_migrations`](Self::get_applied_migrations).
     async fn status(db: &Database) -> Result<Vec<MigrationStatus>, DbErr> {
+        let migrations = Self::migrations();
+        ensure_unique(&migrations)?;
         let applied = Self::get_applied_migrations(db).await?;
-        Ok(Self::migrations()
+        Ok(migrations
             .iter()
             .map(|m| MigrationStatus {
                 name: m.name().to_owned(),
@@ -111,17 +180,25 @@ pub trait MigratorTrait: Send {
     ///
     /// Each migration and its version row are committed together; on the
     /// first failure the transaction is dropped and rolled back, and the
-    /// error is returned without touching later migrations.
+    /// error is returned without touching later migrations. Every
+    /// [`MigrationIssue`] is logged as a warning first, or fails the call
+    /// when [`strict`](Self::strict) is set.
     ///
     /// # Errors
     ///
-    /// Returns [`DbErr::Driver`] when a statement or the transaction fails;
+    /// Returns [`DbErr::Migration`] when two declared migrations share a
+    /// name, or when [`strict`](Self::strict) is set and
+    /// [`check`](Self::check) finds an issue, in both cases before anything
+    /// runs; [`DbErr::Driver`] when a statement or the transaction fails;
     /// any error the migration's `up` returns.
     async fn up(db: &Database, steps: Option<u32>) -> Result<(), DbErr> {
+        let migrations = Self::migrations();
+        ensure_unique(&migrations)?;
         Self::install(db).await?;
         let applied = Self::get_applied_migrations(db).await?;
+        report_issues(&find_issues(&migrations, &applied), Self::strict())?;
         let mut remaining = steps.map_or(usize::MAX, |s| s as usize);
-        for migration in Self::migrations() {
+        for migration in migrations {
             if remaining == 0 {
                 break;
             }
@@ -162,16 +239,24 @@ pub trait MigratorTrait: Send {
     /// Each migration's `down` and the deletion of its version row are
     /// committed together, mirroring [`up`](Self::up).
     ///
+    /// Unknown and out-of-order migrations are left alone: reverting does
+    /// not depend on them, and failing here would block the way back from
+    /// the state they describe.
+    ///
     /// # Errors
     ///
-    /// Returns [`DbErr::Driver`] when a statement or the transaction fails;
-    /// any error the migration's `down` returns, including the default
-    /// [`DbErr::Migration`] of an irreversible migration.
+    /// Returns [`DbErr::Migration`] when two declared migrations share a
+    /// name, before anything runs; [`DbErr::Driver`] when a statement or
+    /// the transaction fails; any error the migration's `down` returns,
+    /// including the default [`DbErr::Migration`] of an irreversible
+    /// migration.
     async fn down(db: &Database, steps: Option<u32>) -> Result<(), DbErr> {
+        let migrations = Self::migrations();
+        ensure_unique(&migrations)?;
         Self::install(db).await?;
         let applied = Self::get_applied_migrations(db).await?;
         let mut remaining = steps.map_or(usize::MAX, |s| s as usize);
-        for migration in Self::migrations().into_iter().rev() {
+        for migration in migrations.into_iter().rev() {
             if remaining == 0 {
                 break;
             }
@@ -206,9 +291,11 @@ pub trait MigratorTrait: Send {
     ///
     /// # Errors
     ///
-    /// Returns [`DbErr::Driver`] when a query, a drop or the transaction
-    /// fails; the errors of [`up`](Self::up).
+    /// Returns [`DbErr::Migration`] when two declared migrations share a
+    /// name, before any table is dropped; [`DbErr::Driver`] when a query, a
+    /// drop or the transaction fails; the errors of [`up`](Self::up).
     async fn fresh(db: &Database) -> Result<(), DbErr> {
+        ensure_unique(&Self::migrations())?;
         let rows = db
             .query_all(Statement::from_string(
                 "SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__turso_%'",
@@ -249,8 +336,20 @@ pub trait MigratorTrait: Send {
     ///
     /// # Errors
     ///
-    /// Returns the errors of [`down`](Self::down) and [`up`](Self::up).
+    /// Returns [`DbErr::Migration`] when [`strict`](Self::strict) is set
+    /// and an applied migration is not declared, before anything is
+    /// reverted; the errors of [`down`](Self::down) and [`up`](Self::up).
     async fn refresh(db: &Database) -> Result<(), DbErr> {
+        // An unknown migration survives `down`, so a strict `up` would only
+        // refuse it once everything had been reverted; check it first.
+        if Self::strict() {
+            let unknown: Vec<MigrationIssue> = Self::check(db)
+                .await?
+                .into_iter()
+                .filter(|issue| matches!(issue, MigrationIssue::Unknown(_)))
+                .collect();
+            report_issues(&unknown, true)?;
+        }
         Self::down(db, None).await?;
         Self::up(db, None).await
     }
@@ -286,4 +385,57 @@ async fn is_applied<C: ConnectionTrait>(
         .query_one(turso_orm::Build::to_statement(&stmt))
         .await?
         .is_some())
+}
+
+/// Checks that no two declared migrations share a name.
+///
+/// # Errors
+///
+/// Returns [`DbErr::Migration`] naming the first duplicate.
+fn ensure_unique(migrations: &[Box<dyn MigrationTrait>]) -> Result<(), DbErr> {
+    let mut seen = HashSet::new();
+    match migrations.iter().find(|m| !seen.insert(m.name())) {
+        Some(duplicate) => Err(DbErr::Migration(format!(
+            "duplicate migration name `{}`",
+            duplicate.name()
+        ))),
+        None => Ok(()),
+    }
+}
+
+/// Compares the declared migrations with the applied ones.
+///
+/// A pending migration is out of order when any migration declared after
+/// it is applied.
+fn find_issues(migrations: &[Box<dyn MigrationTrait>], applied: &[String]) -> Vec<MigrationIssue> {
+    let declared: HashSet<&str> = migrations.iter().map(|m| m.name()).collect();
+    let is_applied = |name: &str| applied.iter().any(|a| a == name);
+    let last_applied = migrations.iter().rposition(|m| is_applied(m.name()));
+    let unknown = applied
+        .iter()
+        .filter(|a| !declared.contains(a.as_str()))
+        .map(|a| MigrationIssue::Unknown(a.clone()));
+    let out_of_order = migrations
+        .iter()
+        .take(last_applied.unwrap_or(0))
+        .filter(|m| !is_applied(m.name()))
+        .map(|m| MigrationIssue::OutOfOrder(m.name().to_owned()));
+    unknown.chain(out_of_order).collect()
+}
+
+/// Logs each issue as a warning, or turns them into one error when `strict`.
+///
+/// # Errors
+///
+/// Returns [`DbErr::Migration`] listing every issue when `strict` is set
+/// and there is at least one.
+fn report_issues(issues: &[MigrationIssue], strict: bool) -> Result<(), DbErr> {
+    if strict && !issues.is_empty() {
+        let list: Vec<String> = issues.iter().map(ToString::to_string).collect();
+        return Err(DbErr::Migration(list.join("; ")));
+    }
+    for issue in issues {
+        tracing::warn!("{issue}");
+    }
+    Ok(())
 }
