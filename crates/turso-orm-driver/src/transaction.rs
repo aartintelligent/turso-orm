@@ -7,14 +7,24 @@
 //! connection, which is why a nested [`Transaction`] shares the parent's
 //! state rather than acquiring anything.
 //!
+//! The engine keeps one stack of savepoints, so only the innermost open
+//! transaction may act. A statement issued through a parent while a nested
+//! transaction is open would run inside the nested savepoint and share its
+//! fate; one issued after the top level finished would run outside any
+//! transaction. Every handle therefore checks, before each statement, that
+//! it is the top of the shared stack and that the top level is still open,
+//! and fails with [`Error::Misuse`](crate::Error::Misuse) otherwise. Each
+//! savepoint carries a unique identifier rather than its depth, so a stale
+//! handle can never name a newer savepoint that took its place.
+//!
 //! `Drop` cannot await, so an unfinished transaction cannot roll itself
 //! back synchronously. The module makes that safe in two ways: a dropped
 //! top-level transaction discards its connection, which the engine rolls
 //! back when the connection closes and which the pool never hands out
-//! again; a dropped nested transaction records its depth in the shared
-//! state and the parent runs `ROLLBACK TO SAVEPOINT` before its next
-//! statement. The shallowest dropped depth wins because rolling back to it
-//! subsumes every deeper savepoint.
+//! again; a dropped nested transaction records its position in the shared
+//! stack and the parent runs `ROLLBACK TO SAVEPOINT` before its next
+//! statement. The shallowest dropped position wins because rolling back to
+//! it subsumes every deeper savepoint.
 //!
 //! This module owns the transaction lifecycle only. Statement execution is
 //! delegated to `crate::executor` and the pool to `crate::database`.
@@ -25,21 +35,15 @@
 use std::fmt;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use async_trait::async_trait;
 use turso_sql::Statement;
 
 use crate::connection::{ConnectionTrait, StreamTrait, TransactionTrait};
 use crate::database::{PooledConnection, retry_busy};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::executor::{self, Conn, ExecResult, Row, RowStream};
-
-/// The sentinel stored in `Shared::pending_rollback` when no nested
-/// transaction was dropped. `u32::MAX` so that `fetch_min` with any real
-/// depth replaces it.
-const NO_PENDING: u32 = u32::MAX;
 
 /// How a top-level transaction is started.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -72,19 +76,36 @@ impl TransactionMode {
     }
 }
 
+/// The savepoint bookkeeping shared by a transaction and its nested ones.
+struct State {
+    /// The identifiers of the open savepoints, outermost first; mirrors the
+    /// engine's savepoint stack.
+    savepoints: Vec<u64>,
+    /// The identifier of the last savepoint created; incremented before use.
+    last_id: u64,
+    /// The stack position of the shallowest nested transaction dropped
+    /// without commit or rollback; rolled back to before the next statement.
+    pending_rollback: Option<usize>,
+    /// Whether the top-level transaction has finished or been dropped.
+    closed: bool,
+}
+
 /// The connection state shared by a transaction and its nested savepoints.
 struct Shared {
     /// The pinned connection.
     conn: PooledConnection,
-    /// The depth of the deepest savepoint still open.
-    depth: AtomicU32,
-    /// The depth of the shallowest nested transaction dropped without
-    /// commit or rollback, or [`NO_PENDING`]; rolled back to before the
-    /// next statement.
-    pending_rollback: AtomicU32,
+    /// The savepoint bookkeeping, never held across an `.await`.
+    state: Mutex<State>,
 }
 
 impl Shared {
+    /// Locks the savepoint bookkeeping.
+    fn state(&self) -> MutexGuard<'_, State> {
+        // Nothing panics while the lock is held, so a poisoned lock still
+        // guards a consistent stack.
+        self.state.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
     /// Applies the rollback owed by a dropped nested transaction, if any.
     ///
     /// Called before every statement and before finishing, so that work
@@ -92,35 +113,41 @@ impl Shared {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Turso`](crate::Error::Turso) when the engine cannot
-    /// roll back to or release the savepoint.
+    /// Returns [`Error::Turso`] when the engine cannot roll back to or
+    /// release the savepoint.
     async fn settle(&self) -> Result<()> {
-        let pending = self.pending_rollback.swap(NO_PENDING, Ordering::AcqRel);
-        if pending != NO_PENDING {
+        let pending = {
+            let mut state = self.state();
+            state
+                .pending_rollback
+                .take()
+                .and_then(|index| Some((index, *state.savepoints.get(index)?)))
+        };
+        if let Some((index, id)) = pending {
             tracing::warn!(
-                depth = pending,
+                depth = index + 1,
                 "rolling back nested transaction dropped without commit"
             );
-            rollback_to(&self.conn, pending).await?;
-            self.depth.store(pending - 1, Ordering::Release);
+            rollback_to(&self.conn, id).await?;
+            self.state().savepoints.truncate(index);
         }
         Ok(())
     }
 }
 
-/// Rolls back to the savepoint at `depth` and releases it.
+/// Rolls back to the savepoint `id` and releases it.
 ///
 /// `ROLLBACK TO` alone leaves the savepoint on the stack, so it is released
-/// afterwards to keep the engine's savepoint stack in step with `depth`.
+/// afterwards to keep the engine's savepoint stack in step with the shared
+/// one.
 ///
 /// # Errors
 ///
-/// Returns [`Error::Turso`](crate::Error::Turso) when either statement
-/// fails.
-async fn rollback_to(conn: &Conn, depth: u32) -> Result<()> {
-    conn.execute_raw(&format!("ROLLBACK TO SAVEPOINT sp{depth}"))
+/// Returns [`Error::Turso`] when either statement fails.
+async fn rollback_to(conn: &Conn, id: u64) -> Result<()> {
+    conn.execute_raw(&format!("ROLLBACK TO SAVEPOINT sp{id}"))
         .await?;
-    conn.execute_raw(&format!("RELEASE SAVEPOINT sp{depth}"))
+    conn.execute_raw(&format!("RELEASE SAVEPOINT sp{id}"))
         .await?;
     Ok(())
 }
@@ -130,13 +157,18 @@ async fn rollback_to(conn: &Conn, depth: u32) -> Result<()> {
 /// Created with [`Database::begin`](crate::Database::begin) or
 /// [`Database::begin_with_mode`](crate::Database::begin_with_mode). Nested
 /// transactions (`txn.begin()`) are `SAVEPOINT`s on the same connection.
-/// Dropping an unfinished transaction rolls it back: a top-level transaction
-/// discards its connection, a nested one is rolled back to its savepoint
-/// before the parent runs its next statement.
+/// While a nested transaction is open it is the only one that may run
+/// statements, begin, commit or roll back; its parents fail with
+/// [`Error::Misuse`] until it is finished or dropped. Dropping an unfinished
+/// transaction rolls it back: a top-level transaction discards its
+/// connection, a nested one is rolled back to its savepoint before the
+/// parent runs its next statement.
 #[must_use = "a transaction must be committed or rolled back"]
 pub struct Transaction {
     /// The connection state shared with the parent and children.
     shared: Arc<Shared>,
+    /// This transaction's savepoint identifier; `None` for the top level.
+    savepoint: Option<u64>,
     /// This transaction's savepoint depth; `0` for the top level.
     depth: u32,
     /// Whether the transaction is still unfinished; cleared by `finish` so
@@ -162,19 +194,23 @@ impl Transaction {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Turso`](crate::Error::Turso) when the engine cannot
-    /// start the transaction — with
-    /// [`ErrorKind::Busy`](crate::ErrorKind::Busy) once the retry budget is
-    /// exhausted.
+    /// Returns [`Error::Turso`] when the engine cannot start the
+    /// transaction — with [`ErrorKind::Busy`](crate::ErrorKind::Busy) once
+    /// the retry budget is exhausted.
     pub(crate) async fn begin_top(conn: PooledConnection, mode: TransactionMode) -> Result<Self> {
         let budget = conn.options().busy_timeout.unwrap_or_default();
         retry_busy(budget, || async { conn.execute_raw(mode.sql()).await }).await?;
         Ok(Self {
             shared: Arc::new(Shared {
                 conn,
-                depth: AtomicU32::new(0),
-                pending_rollback: AtomicU32::new(NO_PENDING),
+                state: Mutex::new(State {
+                    savepoints: Vec::new(),
+                    last_id: 0,
+                    pending_rollback: None,
+                    closed: false,
+                }),
             }),
+            savepoint: None,
             depth: 0,
             open: true,
         })
@@ -184,19 +220,23 @@ impl Transaction {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Turso`](crate::Error::Turso) when a pending
-    /// rollback or the `SAVEPOINT` statement fails.
+    /// Returns the errors of [`prepare`](Self::prepare);
+    /// [`Error::Turso`] when the `SAVEPOINT` statement fails.
     async fn begin_nested(&self) -> Result<Self> {
-        self.shared.settle().await?;
-        let depth = self.shared.depth.load(Ordering::Acquire) + 1;
-        self.shared
-            .conn
-            .execute_raw(&format!("SAVEPOINT sp{depth}"))
+        self.prepare().await?;
+        let id = {
+            let mut state = self.shared.state();
+            state.last_id += 1;
+            state.last_id
+        };
+        self.conn()
+            .execute_raw(&format!("SAVEPOINT sp{id}"))
             .await?;
-        self.shared.depth.store(depth, Ordering::Release);
+        self.shared.state().savepoints.push(id);
         Ok(Self {
             shared: Arc::clone(&self.shared),
-            depth,
+            savepoint: Some(id),
+            depth: self.depth + 1,
             open: true,
         })
     }
@@ -211,32 +251,74 @@ impl Transaction {
         &self.shared.conn
     }
 
-    /// Finishes the transaction, rolling back when `rollback` is set and
-    /// committing otherwise.
-    ///
-    /// `open` is cleared first so that `Drop` stays inert even if the
-    /// engine statement fails; a failed commit leaves the connection in an
-    /// unknown state, which the pool detects through `is_autocommit`.
+    /// Checks that this transaction may act, after applying the rollback
+    /// owed by a dropped nested transaction.
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Turso`](crate::Error::Turso) when a pending rollback
-    /// or the finishing statement fails.
-    async fn finish(mut self, rollback: bool) -> Result<()> {
-        self.open = false;
+    /// Returns [`Error::Misuse`] when the top-level transaction has
+    /// finished, when a nested transaction is still open inside this one,
+    /// or when this one was rolled back with a dropped parent;
+    /// [`Error::Turso`] when the pending rollback fails.
+    async fn prepare(&self) -> Result<()> {
+        if self.shared.state().closed {
+            return Err(Error::Misuse("transaction already finished".into()));
+        }
         self.shared.settle().await?;
-        if self.depth == 0 {
-            self.conn()
-                .execute_raw(if rollback { "ROLLBACK" } else { "COMMIT" })
-                .await?;
-        } else if rollback {
-            rollback_to(self.conn(), self.depth).await?;
-            self.shared.depth.store(self.depth - 1, Ordering::Release);
-        } else {
-            self.conn()
-                .execute_raw(&format!("RELEASE SAVEPOINT sp{}", self.depth))
-                .await?;
-            self.shared.depth.store(self.depth - 1, Ordering::Release);
+        let state = self.shared.state();
+        let innermost = match self.savepoint {
+            None => state.savepoints.is_empty(),
+            Some(id) => state.savepoints.last() == Some(&id),
+        };
+        if innermost {
+            return Ok(());
+        }
+        let alive = self
+            .savepoint
+            .is_none_or(|id| state.savepoints.contains(&id));
+        Err(Error::Misuse(
+            if alive {
+                "a nested transaction is still open"
+            } else {
+                "nested transaction rolled back with its parent"
+            }
+            .into(),
+        ))
+    }
+
+    /// Finishes the transaction, rolling back when `rollback` is set and
+    /// committing otherwise.
+    ///
+    /// When the checks fail, the transaction is dropped unfinished and
+    /// rolled back as `Drop` describes. Once they pass, `open` is cleared
+    /// so that `Drop` stays inert even if the engine statement fails; a
+    /// failed commit leaves the connection in an unknown state, which the
+    /// pool detects through `is_autocommit`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the errors of [`prepare`](Self::prepare);
+    /// [`Error::Turso`] when the finishing statement fails.
+    async fn finish(mut self, rollback: bool) -> Result<()> {
+        self.prepare().await?;
+        self.open = false;
+        match self.savepoint {
+            None => {
+                self.shared.state().closed = true;
+                self.conn()
+                    .execute_raw(if rollback { "ROLLBACK" } else { "COMMIT" })
+                    .await?;
+            }
+            Some(id) => {
+                if rollback {
+                    rollback_to(self.conn(), id).await?;
+                } else {
+                    self.conn()
+                        .execute_raw(&format!("RELEASE SAVEPOINT sp{id}"))
+                        .await?;
+                }
+                self.shared.state().savepoints.pop();
+            }
         }
         Ok(())
     }
@@ -246,9 +328,10 @@ impl Transaction {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Turso`](crate::Error::Turso) when the commit fails;
-    /// an MVCC write conflict surfaces here with
-    /// [`ErrorKind::Busy`](crate::ErrorKind::Busy).
+    /// Returns [`Error::Misuse`] when a nested transaction is still open or
+    /// the transaction can no longer act, in which case it is rolled back;
+    /// [`Error::Turso`] when the commit fails — an MVCC write conflict
+    /// surfaces here with [`ErrorKind::Busy`](crate::ErrorKind::Busy).
     pub async fn commit(self) -> Result<()> {
         self.finish(false).await
     }
@@ -258,8 +341,9 @@ impl Transaction {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Turso`](crate::Error::Turso) when the rollback
-    /// fails.
+    /// Returns [`Error::Misuse`] when a nested transaction is still open or
+    /// the transaction can no longer act, in which case it is still rolled
+    /// back; [`Error::Turso`] when the rollback fails.
     pub async fn rollback(self) -> Result<()> {
         self.finish(true).await
     }
@@ -270,18 +354,25 @@ impl Drop for Transaction {
         if !self.open {
             return;
         }
-        if self.depth == 0 {
+        let mut state = self.shared.state();
+        let Some(id) = self.savepoint else {
+            state.closed = true;
+            drop(state);
             // Nothing can be awaited here, so the connection is withheld
             // from the pool; the engine rolls back when it is closed.
             tracing::warn!("transaction dropped without commit or rollback; discarding connection");
             self.shared.conn.discard();
-        } else {
-            // Record the shallowest dropped depth: rolling back to it also
-            // undoes every deeper savepoint, so a deeper pending depth is
-            // superseded and a shallower one is kept.
-            self.shared
-                .pending_rollback
-                .fetch_min(self.depth, Ordering::AcqRel);
+            return;
+        };
+        // A savepoint already gone — under a finished top level, or rolled
+        // back with a parent — owes nothing. Otherwise record the shallowest
+        // dropped position: rolling back to it also undoes every deeper
+        // savepoint.
+        if state.closed {
+            return;
+        }
+        if let Some(index) = state.savepoints.iter().position(|&s| s == id) {
+            state.pending_rollback = Some(state.pending_rollback.map_or(index, |p| p.min(index)));
         }
     }
 }
@@ -289,22 +380,22 @@ impl Drop for Transaction {
 #[async_trait]
 impl ConnectionTrait for Transaction {
     async fn execute(&self, statement: Statement) -> Result<ExecResult> {
-        self.shared.settle().await?;
+        self.prepare().await?;
         executor::execute(self.conn(), &statement).await
     }
 
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult> {
-        self.shared.settle().await?;
+        self.prepare().await?;
         executor::execute_unprepared(self.conn(), sql).await
     }
 
     async fn query_one(&self, statement: Statement) -> Result<Option<Row>> {
-        self.shared.settle().await?;
+        self.prepare().await?;
         executor::query_one(self.conn(), &statement).await
     }
 
     async fn query_all(&self, statement: Statement) -> Result<Vec<Row>> {
-        self.shared.settle().await?;
+        self.prepare().await?;
         executor::query_all(self.conn(), &statement).await
     }
 }
@@ -315,7 +406,7 @@ impl StreamTrait for Transaction {
         statement: Statement,
     ) -> Pin<Box<dyn Future<Output = Result<RowStream<'a>>> + Send + 'a>> {
         Box::pin(async move {
-            self.shared.settle().await?;
+            self.prepare().await?;
             // The stream borrows the transaction, which already pins the
             // connection, so there is nothing extra to hold.
             executor::stream(self.conn(), &statement, ()).await
