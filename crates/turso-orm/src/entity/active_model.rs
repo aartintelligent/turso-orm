@@ -117,13 +117,12 @@ impl<T> ActiveValue<T> {
 
     /// Marks the attribute `Unchanged`, keeping its value; used after a successful write.
     pub fn reset(&mut self) {
-        // Both arms go through `mem::replace` because the value must be
-        // moved out of `self` before `self` is overwritten.
-        if let ActiveValue::Set(v) = std::mem::replace(self, ActiveValue::NotSet) {
-            *self = ActiveValue::Unchanged(v);
-        } else if let ActiveValue::Unchanged(v) = std::mem::replace(self, ActiveValue::NotSet) {
-            *self = ActiveValue::Unchanged(v);
-        }
+        // The state is moved out exactly once: a second `mem::replace` would
+        // read the `NotSet` placeholder and lose an `Unchanged` value.
+        *self = match std::mem::replace(self, ActiveValue::NotSet) {
+            ActiveValue::Set(v) | ActiveValue::Unchanged(v) => ActiveValue::Unchanged(v),
+            ActiveValue::NotSet => ActiveValue::NotSet,
+        };
     }
 
     /// Maps the inner value, preserving the attribute state.
@@ -483,4 +482,49 @@ fn json_to_value(json: &serde_json::Value) -> Value {
 /// Returns [`DbErr::Type`] when the value cannot be decoded as `T`.
 pub fn decode_field<T: turso_orm_driver::FromValue>(column: &str, value: Value) -> Result<T> {
     T::from_value(value, column).map_err(|e| DbErr::Type(e.to_string()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ActiveValue;
+
+    /// `reset` turns a `Set` value into `Unchanged`, keeping the value.
+    #[test]
+    fn reset_set_becomes_unchanged() {
+        let mut value = ActiveValue::Set(42);
+        value.reset();
+        assert_eq!(value, ActiveValue::Unchanged(42));
+    }
+
+    /// `reset` leaves an `Unchanged` value as it is.
+    #[test]
+    fn reset_unchanged_stays_unchanged() {
+        let mut value = ActiveValue::Unchanged(42);
+        value.reset();
+        assert_eq!(value, ActiveValue::Unchanged(42));
+    }
+
+    /// `reset` leaves a `NotSet` attribute `NotSet`.
+    #[test]
+    fn reset_not_set_stays_not_set() {
+        let mut value = ActiveValue::<i32>::NotSet;
+        value.reset();
+        assert_eq!(value, ActiveValue::NotSet);
+    }
+
+    /// `reset` is idempotent on every state.
+    #[test]
+    fn reset_is_idempotent() {
+        for start in [
+            ActiveValue::Set(1),
+            ActiveValue::Unchanged(1),
+            ActiveValue::NotSet,
+        ] {
+            let mut once = start.clone();
+            once.reset();
+            let mut twice = once.clone();
+            twice.reset();
+            assert_eq!(once, twice);
+        }
+    }
 }
