@@ -181,8 +181,16 @@ step in around writes:
 | `before_delete(self, db)` | Before `delete` | Refuse the deletion of a protected row |
 | `after_delete(self, db)` | After `delete` | Clean up related resources |
 
-A hook that returns `Err` aborts the write; the error reaches the caller
-unchanged.
+A hook that returns `Err` reaches the caller unchanged. From `before_save`
+or `before_delete` it aborts the write. From `after_save` or
+`after_delete` the statement has already run: outside a transaction the
+row stays written, so run the call inside one when the hook's failure must
+undo the write.
+
+The hooks run around the methods of the active model only: `insert`,
+`update`, `save` and `delete`. Statements built from the entity, such as
+`Entity::insert`, `Entity::insert_many`, `Entity::update_many` or
+`Entity::delete_by_id`, go straight to the database without them.
 
 ### From a request to an active model
 
