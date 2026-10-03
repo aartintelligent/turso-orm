@@ -101,12 +101,35 @@ come from `MigratorTrait`:
 | `up(db, None)` / `up(db, Some(n))` | Applies every pending migration, or the first `n`. |
 | `down(db, None)` / `down(db, Some(n))` | Reverts every applied migration, or the last `n`, newest first. |
 | `status(db)` | Each declared migration with an `applied` flag, in order. |
+| `check(db)` | The mismatches between the list and the bookkeeping table, without changing anything. |
 | `refresh(db)` | `down` everything, then `up`: rebuilds the schema through the migrations. |
 | `fresh(db)` | Drops every table including the bookkeeping one, then `up`. For development databases. |
 | `reset(db)` | `down` everything and stop. |
 
-A migration that is in the bookkeeping table but no longer in the list is
-left alone; one that is in the list but not in the table is pending.
+## Validating the list
+
+Before running anything, the migrator compares the list with the
+bookkeeping table:
+
+- **Two migrations with the same name** fail every operation, `status`
+  included, before the database is touched: the bookkeeping table could
+  not tell them apart. With `DeriveMigrationName` it only happens when one
+  migration is listed twice.
+- **An applied migration missing from the list** is a
+  `MigrationIssue::Unknown`. It happens when an older binary runs against
+  a database a newer one migrated, which is what rolling a deployment back
+  does, or after a migration was renamed. The migrator leaves its row
+  alone.
+- **A pending migration listed before an applied one** is a
+  `MigrationIssue::OutOfOrder`. It happens when two branches that each
+  added a migration are merged: `up` applies it after the later one, which
+  is fine as long as the two do not touch the same tables.
+
+`up` logs each issue as a warning and carries on. Override `strict()` to
+return `true` and it fails instead, before applying anything; `refresh`
+then refuses an unknown migration before reverting anything. `down` never
+checks them, so that the way back stays open. `check(db)` returns the
+issues for a CI step or a status command to show.
 
 ## Running migrations
 

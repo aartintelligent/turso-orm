@@ -37,5 +37,8 @@ async fn main() -> Result<(), DbErr> {
         let mark = if status.applied { "applied" } else { "pending" };
         println!("{mark:8} {}", status.name);
     }
+    for issue in Migrator::check(&db).await? {
+        println!("warning  {issue}");
+    }
     Ok(())
 }
