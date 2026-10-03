@@ -244,6 +244,39 @@ async fn nested_transactions_act_innermost_only() {
     assert_eq!(count(&db).await, 2);
 }
 
+/// A write-write conflict between two `BEGIN CONCURRENT` transactions is
+/// reported as busy, so that a caller knows to retry the transaction.
+#[tokio::test]
+async fn mvcc_write_conflict_is_busy() {
+    let db = Database::connect(ConnectOptions::in_memory().mvcc(true))
+        .await
+        .expect("open");
+    db.execute_unprepared("CREATE TABLE counter (id INTEGER PRIMARY KEY, n INTEGER NOT NULL)")
+        .await
+        .expect("create");
+    db.execute_unprepared("INSERT INTO counter VALUES (1, 0)")
+        .await
+        .expect("seed");
+    let first = db
+        .begin_with_mode(TransactionMode::Concurrent)
+        .await
+        .expect("begin first");
+    let second = db
+        .begin_with_mode(TransactionMode::Concurrent)
+        .await
+        .expect("begin second");
+    first
+        .execute_unprepared("UPDATE counter SET n = 1 WHERE id = 1")
+        .await
+        .expect("first update");
+    let err = second
+        .execute_unprepared("UPDATE counter SET n = 2 WHERE id = 1")
+        .await
+        .expect_err("conflict");
+    assert!(err.is_busy(), "{err}");
+    first.commit().await.expect("commit first");
+}
+
 /// Rows stream in order from the pool, where the stream carries its own
 /// pooled connection, and from a transaction, where it borrows the pinned
 /// one.

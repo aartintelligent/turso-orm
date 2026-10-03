@@ -168,17 +168,15 @@ impl From<turso::Error> for Error {
 
 /// Classifies an engine error by variant, falling back to its message.
 ///
-/// MVCC write-write conflicts are reported as a generic `Error` whose
-/// message mentions "conflict", so that case is matched textually to make
-/// it retryable like any other busy condition.
+/// MVCC conflicts are reported as a generic `Error`, so that case is
+/// matched textually by [`is_conflict`] to make it retryable like any
+/// other busy condition.
 fn classify(err: &turso::Error) -> ErrorKind {
     match err {
         turso::Error::Busy(_) | turso::Error::BusySnapshot(_) => ErrorKind::Busy,
         turso::Error::Constraint(msg) => ErrorKind::Constraint(classify_constraint(msg)),
         turso::Error::Misuse(_) => ErrorKind::Misuse,
-        turso::Error::Error(msg) if msg.to_ascii_lowercase().contains("conflict") => {
-            ErrorKind::Busy
-        }
+        turso::Error::Error(msg) if is_conflict(msg) => ErrorKind::Busy,
         turso::Error::IoError(..) | turso::Error::NotAdb(_) | turso::Error::Corrupt(_) => {
             ErrorKind::Connection
         }
@@ -197,12 +195,26 @@ impl From<turso_serverless::Error> for Error {
             E::Busy(_) | E::BusySnapshot(_) => ErrorKind::Busy,
             E::Constraint(msg) => ErrorKind::Constraint(classify_constraint(msg)),
             E::Misuse(_) => ErrorKind::Misuse,
-            E::Error(msg) if msg.to_ascii_lowercase().contains("conflict") => ErrorKind::Busy,
+            E::Error(msg) if is_conflict(msg) => ErrorKind::Busy,
             E::Http(_) | E::NotAdb(_) | E::Corrupt(_) => ErrorKind::Connection,
             _ => ErrorKind::Other,
         };
         Error::Remote { kind, source }
     }
+}
+
+/// Whether a generic engine error reports an MVCC conflict, which a retry
+/// of the whole transaction can resolve.
+///
+/// The engine words them `Write-write conflict`, `Conflict: …` and
+/// `Database schema conflict`. Matching those phrases rather than the bare
+/// word keeps deterministic errors that merely mention a conflict, such as
+/// a parse error about `ON CONFLICT` clauses, out of the retryable kind.
+fn is_conflict(msg: &str) -> bool {
+    let lower = msg.to_ascii_lowercase();
+    lower.contains("write-write conflict")
+        || lower.starts_with("conflict:")
+        || lower.contains("schema conflict")
 }
 
 /// Classifies a constraint violation from the engine's message, which is
@@ -237,6 +249,24 @@ mod tests {
         let e: Error = turso::Error::Error("write-write conflict".into()).into();
         assert!(e.is_busy());
         let e: Error = turso::Error::Error("syntax error".into()).into();
+        assert_eq!(e.kind(), ErrorKind::Other);
+    }
+
+    /// Each conflict message of the engine is busy, while a parse error that
+    /// mentions `ON CONFLICT` is not.
+    #[test]
+    fn classifies_conflicts_by_phrase() {
+        for msg in [
+            "Write-write conflict",
+            "Conflict: row 3 was modified",
+            "Database schema conflict",
+        ] {
+            let e: Error = turso::Error::Error(msg.into()).into();
+            assert!(e.is_busy(), "{msg}");
+        }
+        let e: Error =
+            turso::Error::Error("Parse error: conflicting ON CONFLICT clauses specified".into())
+                .into();
         assert_eq!(e.kind(), ErrorKind::Other);
     }
 }
