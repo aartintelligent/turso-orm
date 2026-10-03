@@ -5,7 +5,9 @@
 //! and one fails on purpose after creating a table so that the rollback
 //! guarantee can be observed. Two migrators combine them: the regular one
 //! for the full `up`, `down`, `status`, `refresh`, `fresh` and `reset`
-//! cycle, and a failing one for the rollback test.
+//! cycle, and a failing one for the rollback test. Two more report a stale
+//! list of applied migrations, standing in for a migrator that read the
+//! bookkeeping table before another one committed.
 //!
 //! ```text
 //! cargo test -p turso-orm-migration --test migrate
@@ -224,4 +226,65 @@ async fn failed_migration_is_rolled_back() {
     assert!(manager.has_index("idx-user-email").await.expect("has"));
     assert!(manager.has_column("user", "email").await.expect("has"));
     txn.rollback().await.expect("rollback");
+}
+
+/// A migrator that read the bookkeeping table before another one applied its migration.
+struct StaleBeforeUp;
+
+#[async_trait]
+impl MigratorTrait for StaleBeforeUp {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        vec![Box::new(m20240101_000001_create_user::Migration)]
+    }
+
+    fn migration_table_name() -> &'static str {
+        Migrator::migration_table_name()
+    }
+
+    async fn get_applied_migrations(_db: &Database) -> Result<Vec<String>, DbErr> {
+        Ok(Vec::new())
+    }
+}
+
+/// A migrator that read the bookkeeping table before another one reverted its migration.
+struct StaleBeforeDown;
+
+#[async_trait]
+impl MigratorTrait for StaleBeforeDown {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        vec![Box::new(m20240101_000001_create_user::Migration)]
+    }
+
+    fn migration_table_name() -> &'static str {
+        Migrator::migration_table_name()
+    }
+
+    async fn get_applied_migrations(_db: &Database) -> Result<Vec<String>, DbErr> {
+        Ok(vec!["m20240101_000001_create_user".to_owned()])
+    }
+}
+
+/// A migrator working from a stale list skips what another migrator already applied or reverted, instead of running it twice.
+#[tokio::test]
+async fn stale_migrator_skips_settled_migrations() {
+    let db = Database::connect(ConnectOptions::in_memory())
+        .await
+        .expect("open");
+    Migrator::up(&db, Some(1)).await.expect("up");
+    StaleBeforeUp::up(&db, None).await.expect("stale up");
+    assert_eq!(
+        Migrator::get_applied_migrations(&db)
+            .await
+            .expect("applied"),
+        ["m20240101_000001_create_user"]
+    );
+
+    Migrator::down(&db, None).await.expect("down");
+    StaleBeforeDown::down(&db, None).await.expect("stale down");
+    assert!(
+        Migrator::get_applied_migrations(&db)
+            .await
+            .expect("applied")
+            .is_empty()
+    );
 }
