@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.3...turso-orm-v0.1.4) - 2026-10-03
+
+### Added
+
+- *(migration)* validate the declared migrations against the bookkeeping table ([#31](https://github.com/aartintelligent/turso-orm/pull/31))
+
+### Documentation
+
+- *(orm)* state when model hooks run and what an after hook error means ([#29](https://github.com/aartintelligent/turso-orm/pull/29))
+
+### Fixed
+
+- *(orm)* keep unchanged values when resetting an active value ([#25](https://github.com/aartintelligent/turso-orm/pull/25))
+- *(driver)* match mvcc conflicts by their exact phrases ([#28](https://github.com/aartintelligent/turso-orm/pull/28))
+- *(driver)* let only the innermost open transaction act ([#26](https://github.com/aartintelligent/turso-orm/pull/26))
+- *(migration)* check each migration again under the write lock ([#27](https://github.com/aartintelligent/turso-orm/pull/27))
+
 ## [0.1.3](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.2...turso-orm-v0.1.3) - 2026-10-02
 
 ### Documentation
