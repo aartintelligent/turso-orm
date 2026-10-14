@@ -6,10 +6,12 @@
    Colors come from the Turso palette variables of `brand.css`.
    --------------------------------------------------------------------------- */
 
-/* The hero fills the viewport under the header and the tabs. The
-   illustration sits on the left of the image; the right column holds the
-   text at the top and the code window at the bottom. */
+/* The hero fills the viewport under the header and the tabs. The schema
+   turns across the whole of it; a column centred on the page holds the text
+   at the top and the code window at the bottom. The illustration is the
+   background until `home.js` starts and marks the hero live. */
 .tx-hero {
+    position: relative;
     display: flex;
     /* The header and the tabs take 4.8rem; the rest of the viewport is the hero.
        `svh` is the viewport with the mobile address bar shown, so the hero
@@ -23,74 +25,95 @@
     background-size: cover;
 }
 
+/* The image is set inline by `home.html`, hence `!important`. */
+.tx-hero--live {
+    background-image: none !important;
+}
+
+/* The canvas covers the hero under the text; it is sized by `home.js`. */
+.tx-hero__canvas {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* On wide screens the schema runs under the column too: a veil centred on
+   it, fading out on both sides, keeps the text and the code window readable. */
+@media screen and (min-width: 76.25em) {
+    .tx-hero::after {
+        position: absolute;
+        z-index: 1;
+        inset: 0;
+        content: "";
+        pointer-events: none;
+        background: linear-gradient(
+            to right,
+            rgba(13, 19, 24, 0) 18%,
+            rgba(13, 19, 24, 0.6) 34%,
+            rgba(13, 19, 24, 0.65) 66%,
+            rgba(13, 19, 24, 0) 82%
+        );
+    }
+}
+
 .tx-hero__inner {
+    position: relative;
+    z-index: 2;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    /* One column, half the grid's width as when it was the right half of a
+       two-column layout, centred on the page; `minmax(0, …)` keeps a long
+       code line from widening it. */
+    grid-template-columns: minmax(0, 30.5rem);
     grid-template-rows: auto auto;
-    /* Text and code window sit together, centred in the right column. */
+    /* Text and code window sit together, centred in the column. */
     align-content: center;
+    justify-content: center;
     gap: 2rem;
     width: 100%;
     padding: 2rem 1.2rem 2.4rem;
 }
 
-/* Text above the code window in the right column. */
+/* Text above the code window. */
 .tx-hero__content {
-    grid-column: 2;
     grid-row: 1;
     max-width: 30rem;
 }
 
 .tx-hero__code {
-    grid-column: 2;
     grid-row: 2;
 }
 
-/* Narrow screens stack the text above the code window; the illustration
-   keeps covering the whole hero, cropped on its empty right side. The tabs
-   are hidden at this width, so only the 2.4rem header sits above the hero. */
+/* Narrow screens widen the column to the screen and lower it; the schema
+   stays behind, and the illustration, when it is still the background, is
+   cropped on its empty right side. The tabs are hidden at this width, so
+   only the 2.4rem header sits above the hero. */
 @media screen and (max-width: 76.1875em) {
     .tx-hero {
         min-height: calc(100vh - 2.4rem);
         min-height: calc(100svh - 2.4rem);
-        position: relative;
         background-position: 30% center;
     }
 
-    /* The text now lies over the illustration: a dark veil, strongest at the
-       top where the title is, keeps it readable. */
+    /* The text now lies over the schema: a dark veil, strongest at the top
+       where the title is, keeps it readable. */
     .tx-hero::before {
         position: absolute;
+        z-index: 1;
         inset: 0;
         content: "";
         background: linear-gradient(
             to bottom,
-            rgba(13, 19, 24, 0.85) 0%,
-            rgba(13, 19, 24, 0.6) 55%,
-            rgba(13, 19, 24, 0.3) 100%
+            rgba(13, 19, 24, 0.6) 0%,
+            rgba(13, 19, 24, 0.35) 55%,
+            rgba(13, 19, 24, 0.15) 100%
         );
     }
 
     .tx-hero__inner {
-        position: relative;
-        /* `minmax(0, 1fr)`, not `1fr`: a plain `1fr` track grows to the
-           longest code line and pushes the whole hero past the screen. */
         grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: auto auto;
         align-content: end;
-    }
-
-    .tx-hero__code,
-    .tx-hero__content {
-        grid-column: 1;
-    }
-
-    .tx-hero__code {
-        grid-row: 2;
-    }
-
-    .tx-hero__content {
-        grid-row: 1;
     }
 }
 
@@ -100,6 +123,8 @@
     font-weight: 700;
     line-height: 1.1;
     color: inherit;
+    /* The text lies over the schema; a soft shadow lifts it off the glow. */
+    text-shadow: 0 0 1rem rgba(13, 19, 24, 0.9);
 }
 
 .tx-hero__lead {
@@ -107,12 +132,14 @@
     font-size: 0.9rem;
     line-height: 1.6;
     color: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 0 0.6rem rgba(13, 19, 24, 0.9);
 }
 
 .tx-hero__note {
     margin: 0 0 1.2rem;
     font-size: 0.64rem;
     color: #9ca3af;
+    text-shadow: 0 0 0.6rem rgba(13, 19, 24, 0.9);
 }
 
 .tx-hero__note a {
@@ -199,15 +226,11 @@
 }
 
 /* Phones keep the hero's text, buttons and code window as on wide screens,
-   on the plain Bunker background: the illustration and its veil go. The
-   image is set inline by `home.html`, hence `!important`. */
+   centred over the schema; the illustration goes even without JavaScript.
+   The image is set inline by `home.html`, hence `!important`. */
 @media screen and (max-width: 44.9375em) {
     .tx-hero {
         background-image: none !important;
-    }
-
-    .tx-hero::before {
-        display: none;
     }
 
     .tx-hero__inner {
