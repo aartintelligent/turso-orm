@@ -87,7 +87,7 @@ features = [
 repo = "fontawesome/brands/github"
 
 # A single dark palette, no toggle: the site follows turso.tech, which is dark
-# only. `custom` hands the colours to assets/stylesheets/brand.css.
+# only. `custom` hands the colors to assets/stylesheets/brand.css.
 [project.theme.palette]
 scheme  = "slate"
 primary = "custom"

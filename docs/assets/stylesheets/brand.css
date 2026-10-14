@@ -1,5 +1,5 @@
 /* ---------------------------------------------------------------------------
-   Brand palette — the colours of turso.tech, applied to the whole site.
+   Brand palette — the colors of turso.tech, applied to the whole site.
 
    Values come from the official brand page (https://turso.tech/brand):
    Turso Aqua #4FF8D2, Dark Teal #183134, Pickled Bluewood #293945,
@@ -64,7 +64,7 @@
 }
 
 /* The primary button: aqua on Bunker, like turso.tech's call to action. The
-   theme fills it with the primary colour, which here is the page background,
+   theme fills it with the primary color, which here is the page background,
    so without this rule it would read as a plain outline. */
 .md-typeset .md-button--primary {
     color: var(--turso-bunker);
