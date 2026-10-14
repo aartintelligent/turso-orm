@@ -169,7 +169,10 @@ deliberately excludes the `clock` feature so `Local` never enters the API.
 - `ColumnTrait` builders produce qualified `table.column` refs so joins never clash.
 - `find_also_related` aliases columns `A_<col>` / `B_<col>`; `FromQueryResult::from_query_result`
   takes that prefix. `from_query_result_optional` returns `None` when all prefixed columns are NULL.
-  The many-to-many loader rides the junction columns along as `__via_<col>`.
+  The derives also emit `from_query_result_mut`, which moves the values out of a `Row` through
+  `Row::take` instead of copying them; the query methods use it on the rows they own, and a
+  hand-written impl only needs the borrowing form (the `_mut` default delegates to it). The
+  many-to-many loader rides the junction columns along as `__via_<col>`.
 - `Select::join_table` aliases a table already in the query as `table_n` and renders the `ON`
   against that alias (self-joins, `Linked` chains); `join_as` takes an explicit alias.
 - One `Related<Target>` impl per entity: the first `Relation` variant naming a target wins, the

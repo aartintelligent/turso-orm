@@ -235,7 +235,9 @@ The typed API covers the common cases; it is not a wall.
   `Selector::<T>::from_statement(statement)` does the same for any
   `FromQueryResult` type.
 - `db.execute`, `db.query_one` and `db.query_all` take a `Statement` and
-  return raw `Row`s that decode on access with `row.get::<T>("column")`.
+  return raw `Row`s that decode on access with `row.get::<T>("column")`, or
+  with `row.take::<T>("column")` to move a text or blob value out of a row
+  you own instead of copying it.
 
 Whichever route you take, parameters stay bound and rows decode with the
 same rules as the entity API.
