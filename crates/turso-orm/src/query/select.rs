@@ -656,7 +656,8 @@ impl<M: FromQueryResult> Selector<M> {
     pub async fn one<C: ConnectionTrait>(mut self, db: &C) -> Result<Option<M>> {
         self.query = self.query.limit(1);
         let row = db.query_one(self.build()).await?;
-        row.map(|r| M::from_query_result(&r, "")).transpose()
+        row.map(|mut r| M::from_query_result_mut(&mut r, ""))
+            .transpose()
     }
 
     /// Fetches every row.
@@ -666,7 +667,9 @@ impl<M: FromQueryResult> Selector<M> {
     /// Returns [`DbErr::Driver`] when the query fails or a row cannot be decoded.
     pub async fn all<C: ConnectionTrait>(self, db: &C) -> Result<Vec<M>> {
         let rows = db.query_all(self.build()).await?;
-        rows.iter().map(|r| M::from_query_result(r, "")).collect()
+        rows.into_iter()
+            .map(|mut r| M::from_query_result_mut(&mut r, ""))
+            .collect()
     }
 
     /// Streams rows as they are read.
@@ -685,7 +688,7 @@ impl<M: FromQueryResult> Selector<M> {
     {
         let stream = db.stream(self.build()).await?;
         Ok(Box::pin(stream.map_err(DbErr::from).and_then(
-            |row| async move { M::from_query_result(&row, "") },
+            |mut row| async move { M::from_query_result_mut(&mut row, "") },
         )))
     }
 
@@ -762,7 +765,8 @@ impl<M: FromQueryResult> RawSelector<M> {
     /// Returns [`DbErr::Driver`] when the query fails or the row cannot be decoded.
     pub async fn one<C: ConnectionTrait>(self, db: &C) -> Result<Option<M>> {
         let row = db.query_one(self.statement).await?;
-        row.map(|r| M::from_query_result(&r, "")).transpose()
+        row.map(|mut r| M::from_query_result_mut(&mut r, ""))
+            .transpose()
     }
 
     /// Fetches every row the statement returns.
@@ -772,7 +776,9 @@ impl<M: FromQueryResult> RawSelector<M> {
     /// Returns [`DbErr::Driver`] when the query fails or a row cannot be decoded.
     pub async fn all<C: ConnectionTrait>(self, db: &C) -> Result<Vec<M>> {
         let rows = db.query_all(self.statement).await?;
-        rows.iter().map(|r| M::from_query_result(r, "")).collect()
+        rows.into_iter()
+            .map(|mut r| M::from_query_result_mut(&mut r, ""))
+            .collect()
     }
 }
 
@@ -926,9 +932,9 @@ impl<E: EntityTrait, R: EntityTrait> SelectTwo<E, R> {
     /// # Errors
     ///
     /// Returns [`DbErr::Driver`] when either side cannot be decoded.
-    fn decode(row: &Row) -> Result<(E::Model, Option<R::Model>)> {
-        let a = E::Model::from_query_result(row, "A_")?;
-        let b = R::Model::from_query_result_optional(row, "B_")?;
+    fn decode(mut row: Row) -> Result<(E::Model, Option<R::Model>)> {
+        let a = E::Model::from_query_result_mut(&mut row, "A_")?;
+        let b = R::Model::from_query_result_optional_mut(&mut row, "B_")?;
         Ok((a, b))
     }
 
@@ -944,7 +950,6 @@ impl<E: EntityTrait, R: EntityTrait> SelectTwo<E, R> {
         self.query = self.query.limit(1);
         db.query_one(self.build())
             .await?
-            .as_ref()
             .map(Self::decode)
             .transpose()
     }
@@ -960,7 +965,7 @@ impl<E: EntityTrait, R: EntityTrait> SelectTwo<E, R> {
     ) -> Result<Vec<(E::Model, Option<R::Model>)>> {
         db.query_all(self.build())
             .await?
-            .iter()
+            .into_iter()
             .map(Self::decode)
             .collect()
     }

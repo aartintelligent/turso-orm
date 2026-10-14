@@ -56,6 +56,7 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
 
     let mut selects = Vec::new();
     let mut reads = Vec::new();
+    let mut takes = Vec::new();
     for f in &fields.named {
         // Unnamed fields were rejected above, so this `expect` is unreachable.
         let name = f.ident.as_ref().expect("named");
@@ -88,6 +89,9 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
         reads.push(quote! {
             #name: ::turso_orm::__private::get_field::<#ty>(row, prefix, #alias)?,
         });
+        takes.push(quote! {
+            #name: ::turso_orm::__private::take_field::<#ty>(row, prefix, #alias)?,
+        });
     }
 
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
@@ -95,6 +99,10 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
         impl #impl_generics ::turso_orm::entity::FromQueryResult for #ident #ty_generics #where_clause {
             fn from_query_result(row: &::turso_orm::__private::Row, prefix: &str) -> ::turso_orm::Result<Self> {
                 Ok(Self { #(#reads)* })
+            }
+
+            fn from_query_result_mut(row: &mut ::turso_orm::__private::Row, prefix: &str) -> ::turso_orm::Result<Self> {
+                Ok(Self { #(#takes)* })
             }
         }
 

@@ -219,6 +219,12 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
         let name = &f.column_name;
         quote! { #i: ::turso_orm::__private::get_field::<#ty>(row, prefix, #name)?, }
     });
+    let take_row = fields.iter().map(|f| {
+        let i = &f.ident;
+        let ty = &f.ty;
+        let name = &f.column_name;
+        quote! { #i: ::turso_orm::__private::take_field::<#ty>(row, prefix, #name)?, }
+    });
     // Ignored fields have no column to read, so both the row decoder and the
     // active-model conversion fill them with their default.
     let ignored_defaults = ignored
@@ -383,6 +389,10 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
         impl ::turso_orm::entity::FromQueryResult for #model {
             fn from_query_result(row: &::turso_orm::__private::Row, prefix: &str) -> ::turso_orm::Result<Self> {
                 Ok(Self { #(#from_row)* #(#ignored_defaults)* })
+            }
+
+            fn from_query_result_mut(row: &mut ::turso_orm::__private::Row, prefix: &str) -> ::turso_orm::Result<Self> {
+                Ok(Self { #(#take_row)* #(#ignored_defaults)* })
             }
         }
 

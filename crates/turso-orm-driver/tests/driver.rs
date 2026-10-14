@@ -92,6 +92,35 @@ async fn crud_and_typed_decoding() {
     assert!(rows[0].get::<f64>("price").is_err());
 }
 
+/// Taking a column moves its value out and leaves `NULL` behind, whether
+/// the columns are taken in select order or not.
+#[tokio::test]
+async fn take_moves_values_out_of_a_row() {
+    let db = setup().await;
+    db.execute(insert("taken", Some(2.5)))
+        .await
+        .expect("insert");
+    let mut row = db
+        .query_one(
+            Query::select()
+                .columns(["id", "name", "price", "active"])
+                .from("item")
+                .to_statement(),
+        )
+        .await
+        .expect("query")
+        .expect("row");
+    // Out of order first, then in order from the hinted position.
+    let price: f64 = row.take("price").expect("price");
+    let id: i64 = row.take("id").expect("id");
+    let name: String = row.take("name").expect("name");
+    let active: bool = row.take("active").expect("active");
+    assert_eq!((id, name.as_str(), price, active), (1, "taken", 2.5, true));
+    assert_eq!(row.get::<Option<String>>("name").expect("null"), None);
+    assert_eq!(row.get::<Option<f64>>("PRICE").expect("null"), None);
+    assert!(row.take::<i64>("missing").is_err());
+}
+
 /// A unique-constraint violation is classified as such and is not mistaken
 /// for lock contention.
 #[tokio::test]

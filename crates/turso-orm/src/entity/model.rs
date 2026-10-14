@@ -102,16 +102,49 @@ pub trait FromQueryResult: Sized + Send + Sync {
     ///
     /// Returns [`DbErr::Driver`] when a column is present but cannot be decoded.
     fn from_query_result_optional(row: &Row, prefix: &str) -> Result<Option<Self>> {
-        let all_null = row
-            .iter()
-            .filter(|(name, _)| name.starts_with(prefix))
-            .all(|(_, v)| matches!(v, Value::Null));
-        if all_null {
+        if all_null(row, prefix) {
             Ok(None)
         } else {
             Self::from_query_result(row, prefix).map(Some)
         }
     }
+
+    /// Like [`from_query_result`](Self::from_query_result), but moves the
+    /// values out of `row`, which is left with `NULL` in the taken columns.
+    ///
+    /// The derives implement this without copying text or blob values; the
+    /// default delegates to the borrowing form, so a hand-written impl only
+    /// needs that one. The query methods use this form on rows they own.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DbErr::Driver`] when a required column is missing from the
+    /// row or cannot be decoded as the field type.
+    fn from_query_result_mut(row: &mut Row, prefix: &str) -> Result<Self> {
+        Self::from_query_result(row, prefix)
+    }
+
+    /// Like [`from_query_result_optional`](Self::from_query_result_optional),
+    /// moving the values out of `row`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DbErr::Driver`] when a column is present but cannot be decoded.
+    fn from_query_result_optional_mut(row: &mut Row, prefix: &str) -> Result<Option<Self>> {
+        if all_null(row, prefix) {
+            Ok(None)
+        } else {
+            Self::from_query_result_mut(row, prefix).map(Some)
+        }
+    }
+}
+
+/// Whether every column of `row` carrying `prefix` is `NULL`: the mark of
+/// the unmatched side of a `LEFT JOIN`.
+fn all_null(row: &Row, prefix: &str) -> bool {
+    row.iter()
+        .filter(|(name, _)| name.starts_with(prefix))
+        .all(|(_, v)| matches!(v, Value::Null))
 }
 
 impl FromQueryResult for Row {
@@ -187,13 +220,31 @@ const PREFIXED_NAME_CAPACITY: usize = 96;
 /// Returns [`DbErr::Driver`] when the column is missing from the row or
 /// cannot be decoded as `T`.
 pub fn get_field<T: FromValue>(row: &Row, prefix: &str, column: &str) -> Result<T> {
+    with_prefixed_name(prefix, column, |name| row.get::<T>(name)).map_err(DbErr::from)
+}
+
+/// Moves one column of `row` into a field type, leaving `NULL` behind.
+///
+/// The moving counterpart of [`get_field`], used by the generated
+/// `from_query_result_mut` impls.
+///
+/// # Errors
+///
+/// Returns [`DbErr::Driver`] when the column is missing from the row or
+/// cannot be decoded as `T`.
+pub fn take_field<T: FromValue>(row: &mut Row, prefix: &str, column: &str) -> Result<T> {
+    with_prefixed_name(prefix, column, |name| row.take::<T>(name)).map_err(DbErr::from)
+}
+
+/// Calls `f` with `{prefix}{column}` assembled without a heap allocation.
+///
+/// This runs once per field and per row, so a `String` here dominated the
+/// decoding of a joined result set. The name is built in a stack buffer;
+/// a name longer than the buffer is rare and falls back to a `String`.
+fn with_prefixed_name<R>(prefix: &str, column: &str, f: impl FnOnce(&str) -> R) -> R {
     if prefix.is_empty() {
-        return row.get::<T>(column).map_err(DbErr::from);
+        return f(column);
     }
-    // The prefixed name is assembled on the stack: this runs once per field
-    // and per row, so a heap allocation here dominated the decoding of a
-    // joined result set. Names longer than the buffer are rare and fall
-    // back to a `String`.
     let mut buf = [0u8; PREFIXED_NAME_CAPACITY];
     let len = prefix.len() + column.len();
     if len <= buf.len() {
@@ -202,9 +253,8 @@ pub fn get_field<T: FromValue>(row: &Row, prefix: &str, column: &str) -> Result<
         // Both inputs are `str`, so their concatenation is valid UTF-8 and
         // the check cannot fail; the fallback below keeps the code total.
         if let Ok(name) = std::str::from_utf8(&buf[..len]) {
-            return row.get::<T>(name).map_err(DbErr::from);
+            return f(name);
         }
     }
-    let name = format!("{prefix}{column}");
-    row.get::<T>(name.as_str()).map_err(DbErr::from)
+    f(&format!("{prefix}{column}"))
 }

@@ -140,8 +140,8 @@ impl<E: EntityTrait> DeleteMany<E> {
         self.query = self.query.returning(Returning::All);
         db.query_all(self.build())
             .await?
-            .iter()
-            .map(|r| E::Model::from_query_result(r, ""))
+            .into_iter()
+            .map(|mut r| E::Model::from_query_result_mut(&mut r, ""))
             .collect()
     }
 }

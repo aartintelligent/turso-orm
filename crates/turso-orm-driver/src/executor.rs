@@ -66,6 +66,10 @@ pub struct Row {
     columns: Arc<Columns>,
     /// The values, in column order.
     values: Vec<Value>,
+    /// The position expected by the next lookup by name: the column after
+    /// the last one taken. Generated decoders read fields in select order,
+    /// so this turns most name lookups into a single comparison.
+    hint: usize,
 }
 
 /// The column names of a result set, shared by its rows.
@@ -122,6 +126,9 @@ impl ColumnIndex for &str {
     /// Resolves the name as given first, then case-insensitively, so an
     /// exact match wins when a result set has names differing only in case.
     fn resolve(self, row: &Row) -> Option<usize> {
+        if row.columns.names.get(row.hint).is_some_and(|n| n == self) {
+            return Some(row.hint);
+        }
         row.columns.position(self)
     }
 }
@@ -158,6 +165,25 @@ impl Row {
             .resolve(self)
             .ok_or_else(|| Error::decode(column, T::TYPE_NAME, "no such column"))?;
         T::from_value(self.values[idx].clone(), &self.columns.names[idx])
+    }
+
+    /// Decodes a column by moving its value out of the row, which is left
+    /// `NULL` in that position.
+    ///
+    /// This spares the copy that [`get`](Self::get) makes of a text or blob
+    /// value, for callers that decode a row once and then drop it.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Decode`] when the column does not exist or the value
+    /// cannot be converted to `T`.
+    pub fn take<T: FromValue>(&mut self, column: impl ColumnIndex) -> Result<T> {
+        let idx = column
+            .resolve(self)
+            .ok_or_else(|| Error::decode(column, T::TYPE_NAME, "no such column"))?;
+        self.hint = idx + 1;
+        let value = std::mem::replace(&mut self.values[idx], Value::Null);
+        T::from_value(value, &self.columns.names[idx])
     }
 
     /// Decodes a column, returning `None` when it does not exist.
@@ -235,8 +261,8 @@ macro_rules! engine_module {
 
             /// The statement's bound values as engine parameters, in
             /// placeholder order.
-            fn params(statement: &Statement) -> Vec<$engine::Value> {
-                statement.values.iter().cloned().map(to_engine).collect()
+            fn params(values: Vec<Value>) -> Vec<$engine::Value> {
+                values.into_iter().map(to_engine).collect()
             }
 
             /// Copies an engine row into an owned [`Row`] sharing `columns`.
@@ -248,6 +274,7 @@ macro_rules! engine_module {
                 Ok(Row {
                     columns: Arc::clone(columns),
                     values,
+                    hint: 0,
                 })
             }
 
@@ -259,10 +286,10 @@ macro_rules! engine_module {
             /// Runs a query and collects every row.
             pub(super) async fn query_all(
                 conn: &$engine::Connection,
-                statement: &Statement,
+                statement: Statement,
             ) -> Result<Vec<Row>> {
                 let mut stmt = prepare(conn, &statement.sql).await?;
-                let mut rows = stmt.query(params_from_iter(params(statement))).await?;
+                let mut rows = stmt.query(params_from_iter(params(statement.values))).await?;
                 let columns = Columns::new(rows.column_names());
                 let mut out = Vec::new();
                 while let Some(row) = rows.next().await? {
@@ -274,10 +301,10 @@ macro_rules! engine_module {
             /// Runs a query and returns its first row, if any.
             pub(super) async fn query_one(
                 conn: &$engine::Connection,
-                statement: &Statement,
+                statement: Statement,
             ) -> Result<Option<Row>> {
                 let mut stmt = prepare(conn, &statement.sql).await?;
-                let mut rows = stmt.query(params_from_iter(params(statement))).await?;
+                let mut rows = stmt.query(params_from_iter(params(statement.values))).await?;
                 let columns = Columns::new(rows.column_names());
                 let first = rows.next().await?;
                 // The remaining rows are drained so that the cached
@@ -292,10 +319,10 @@ macro_rules! engine_module {
             /// counters.
             pub(super) async fn execute(
                 conn: &$engine::Connection,
-                statement: &Statement,
+                statement: Statement,
             ) -> Result<ExecResult> {
                 let mut stmt = prepare(conn, &statement.sql).await?;
-                let rows_affected = stmt.execute(params_from_iter(params(statement))).await?;
+                let rows_affected = stmt.execute(params_from_iter(params(statement.values))).await?;
                 Ok(ExecResult {
                     last_insert_id: conn.last_insert_rowid(),
                     rows_affected,
@@ -336,11 +363,11 @@ macro_rules! engine_module {
             /// inside the stream and is dropped with it.
             pub(super) async fn stream<'a, H: Send + 'a>(
                 conn: &$engine::Connection,
-                statement: &Statement,
+                statement: Statement,
                 holder: H,
             ) -> Result<RowStream<'a>> {
                 let mut stmt = prepare(conn, &statement.sql).await?;
-                let rows = stmt.query(params_from_iter(params(statement))).await?;
+                let rows = stmt.query(params_from_iter(params(statement.values))).await?;
                 let columns = Columns::new(rows.column_names());
                 Ok(Box::pin(futures_util::stream::unfold(
                     (rows, columns, holder),
@@ -449,7 +476,7 @@ impl Conn {
 ///
 /// Returns the engine error when the statement cannot be prepared, bound or
 /// stepped.
-pub(crate) async fn query_all(conn: &Conn, statement: &Statement) -> Result<Vec<Row>> {
+pub(crate) async fn query_all(conn: &Conn, statement: Statement) -> Result<Vec<Row>> {
     tracing::debug!(sql = %statement.sql, "query_all");
     dispatch!(conn, |c| engine::query_all(c, statement).await)
 }
@@ -460,7 +487,7 @@ pub(crate) async fn query_all(conn: &Conn, statement: &Statement) -> Result<Vec<
 ///
 /// Returns the engine error when the statement cannot be prepared, bound or
 /// stepped.
-pub(crate) async fn query_one(conn: &Conn, statement: &Statement) -> Result<Option<Row>> {
+pub(crate) async fn query_one(conn: &Conn, statement: Statement) -> Result<Option<Row>> {
     tracing::debug!(sql = %statement.sql, "query_one");
     dispatch!(conn, |c| engine::query_one(c, statement).await)
 }
@@ -472,7 +499,7 @@ pub(crate) async fn query_one(conn: &Conn, statement: &Statement) -> Result<Opti
 /// Returns the engine error when the statement cannot be prepared, bound or
 /// executed — with [`ErrorKind::Constraint`](crate::ErrorKind::Constraint)
 /// on a constraint violation.
-pub(crate) async fn execute(conn: &Conn, statement: &Statement) -> Result<ExecResult> {
+pub(crate) async fn execute(conn: &Conn, statement: Statement) -> Result<ExecResult> {
     tracing::debug!(sql = %statement.sql, "execute");
     dispatch!(conn, |c| engine::execute(c, statement).await)
 }
@@ -503,7 +530,7 @@ pub(crate) async fn execute_unprepared(conn: &Conn, sql: &str) -> Result<ExecRes
 /// started. Errors while stepping are yielded as stream items.
 pub(crate) async fn stream<'a, H: Send + 'a>(
     conn: &Conn,
-    statement: &Statement,
+    statement: Statement,
     holder: H,
 ) -> Result<RowStream<'a>> {
     tracing::debug!(sql = %statement.sql, "stream");

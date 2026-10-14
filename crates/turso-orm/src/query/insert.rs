@@ -129,11 +129,11 @@ impl<A: ActiveModelTrait> Insert<A> {
         self,
         db: &C,
     ) -> Result<<A::Entity as EntityTrait>::Model> {
-        let row = db
+        let mut row = db
             .query_one(self.statement(true).to_statement())
             .await?
             .ok_or(DbErr::RecordNotInserted)?;
-        <A::Entity as EntityTrait>::Model::from_query_result(&row, "")
+        <A::Entity as EntityTrait>::Model::from_query_result_mut(&mut row, "")
     }
 }
 
@@ -264,8 +264,8 @@ impl<A: ActiveModelTrait> InsertMany<A> {
             Some(stmt) => db
                 .query_all(stmt.to_statement())
                 .await?
-                .iter()
-                .map(|r| <A::Entity as EntityTrait>::Model::from_query_result(r, ""))
+                .into_iter()
+                .map(|mut r| <A::Entity as EntityTrait>::Model::from_query_result_mut(&mut r, ""))
                 .collect(),
         }
     }

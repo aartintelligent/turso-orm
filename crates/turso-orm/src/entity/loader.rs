@@ -219,8 +219,8 @@ where
         query = query.expr_as(target.clone(), alias.clone());
     }
     let query = query.filter(keys_condition::<E>(models, &from_cols, &targets));
-    for row in query.into_model::<Row>().all(db).await? {
-        let related = R::Model::from_query_result(&row, "")?;
+    for mut row in query.into_model::<Row>().all(db).await? {
+        let related = R::Model::from_query_result_mut(&mut row, "")?;
         let values: Vec<Value> = aliases
             .iter()
             .map(|a| row.raw(a.as_str()).cloned().unwrap_or(Value::Null))
