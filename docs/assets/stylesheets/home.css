@@ -3,7 +3,7 @@
 
    `home.html` links this file itself, so it is loaded on the home page only
    and its rules never reach the guide pages; it is not in `extra_css`.
-   Colours come from the Turso palette variables of `brand.css`.
+   Colors come from the Turso palette variables of `brand.css`.
    --------------------------------------------------------------------------- */
 
 /* The hero fills the viewport under the header and the tabs. The
