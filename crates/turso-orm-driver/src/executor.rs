@@ -35,7 +35,6 @@
 //! [`Transaction`]: crate::Transaction
 //! [`StreamTrait`]: crate::StreamTrait
 
-use std::collections::HashMap;
 use std::fmt;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -69,27 +68,31 @@ pub struct Row {
     values: Vec<Value>,
 }
 
-/// The column names of a result set with a case-insensitive lookup index.
+/// The column names of a result set, shared by its rows.
 struct Columns {
     /// The names in `SELECT` order, as the engine reports them.
     names: Vec<String>,
-    /// Lower-cased name to position.
-    index: HashMap<String, usize>,
 }
 
 impl Columns {
-    /// Builds the shared column index for a result set.
-    ///
-    /// Names are indexed lower-cased because SQL identifiers are case
-    /// insensitive and callers often write `"ID"` for a column declared as
-    /// `id`. The last occurrence of a duplicated name wins.
+    /// Wraps the column names of a result set.
     fn new(names: Vec<String>) -> Arc<Self> {
-        let index = names
-            .iter()
-            .enumerate()
-            .map(|(i, n)| (n.to_ascii_lowercase(), i))
-            .collect();
-        Arc::new(Self { names, index })
+        Arc::new(Self { names })
+    }
+
+    /// Resolves a name to its position: an exact match first, then a
+    /// case-insensitive one, since SQL identifiers are case insensitive and
+    /// callers often write `"ID"` for a column declared as `id`. The last
+    /// occurrence of a duplicated name wins.
+    ///
+    /// A result set has a handful of columns, so a scan beats building a
+    /// lower-cased hash index for every query.
+    fn position(&self, name: &str) -> Option<usize> {
+        self.names.iter().rposition(|n| n == name).or_else(|| {
+            self.names
+                .iter()
+                .rposition(|n| n.eq_ignore_ascii_case(name))
+        })
     }
 }
 
@@ -116,14 +119,10 @@ impl ColumnIndex for usize {
 }
 
 impl ColumnIndex for &str {
-    /// Resolves the name as given first, then lower-cased, so an exact
-    /// match wins when a result set has names differing only in case.
+    /// Resolves the name as given first, then case-insensitively, so an
+    /// exact match wins when a result set has names differing only in case.
     fn resolve(self, row: &Row) -> Option<usize> {
-        row.columns
-            .index
-            .get(self)
-            .or_else(|| row.columns.index.get(&self.to_ascii_lowercase()))
-            .copied()
+        row.columns.position(self)
     }
 }
 
