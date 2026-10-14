@@ -22,6 +22,6 @@ body:
     attributes:
       label: Versions
       description: Output of `cargo tree -i turso-orm -i turso` and `rustc --version`.
-      placeholder: turso-orm 0.1.0, turso 0.8.1, rustc 1.97.1
+      placeholder: turso-orm 0.1.4, turso 0.8.3, rustc 1.97.1
     validations:
       required: true

@@ -8,9 +8,9 @@ material lives in `.claude/skills/*/SKILL.md`.
 
 A from-scratch async ORM dedicated to the Turso database (SQLite-compatible, pure Rust), with a typed
 entity API. **Never copy code from another ORM, and never name one** in code, comments, docs or
-commits: the project stands on its own (project rule). The `turso` sources are cloned at v0.8.1 in
+commits: the project stands on its own (project rule). The `turso` sources are cloned at v0.8.3 in
 `~/workspace/codebase/turso` for API verification. `docs/overview/design.md` on the site records the layering and the
-decisions that differ from a multi-database ORM; the Turso v0.8.1 quirks that matter when coding are
+decisions that differ from a multi-database ORM; the Turso v0.8.3 quirks that matter when coding are
 listed under "Conventions and gotchas" below.
 
 Five crates, each depending only on the ones below:
@@ -185,9 +185,10 @@ deliberately excludes the `clock` feature so `Local` never enters the API.
   four SQLite storage types so generated tables are `STRICT`-compatible.
 - Proc-macro errors must carry the span of the offending user item (`syn::Error::new_spanned`),
   never the macro call site.
-- Turso 0.8.1: one active write statement per connection and no sharing of a connection between
+- Turso 0.8.3: one active write statement per connection and no sharing of a connection between
   tasks (the pool enforces it); `PRAGMA journal_mode = 'mvcc'` enables `BEGIN CONCURRENT` with
-  conflicts surfacing at commit as busy errors; `CREATE VIEW IF NOT EXISTS` is not idempotent;
+  conflicts surfacing at commit as busy errors, and the switch is refused inside a transaction (the
+  pool applies it right after `connect()`); `CREATE VIEW IF NOT EXISTS` is not idempotent;
   `PRAGMA defer_foreign_keys` and `foreign_key_check` are unsupported; `WITHOUT ROWID` and generated
   columns sit behind `ConnectOptions::experimental`. Over HTTP (`ConnectOptions::remote`) the busy
   timeout and MVCC do not apply; the remote end-to-end test in `crates/turso-orm-driver/tests/remote.rs`

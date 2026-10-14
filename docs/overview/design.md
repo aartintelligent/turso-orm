@@ -74,12 +74,14 @@ SQLite's storage classes cannot satisfy; every Turso feature would have to be
 smuggled through an abstraction that does not want it. A stack built for one
 engine is smaller and exposes the engine as it is.
 
-## Turso 0.8.1 behaviour worth knowing
+## Turso 0.8.3 behaviour worth knowing
 
 - One active write statement per connection, and a connection must not be
   shared between tasks. The pool enforces this.
 - `PRAGMA journal_mode = 'mvcc'` enables `BEGIN CONCURRENT`; write conflicts
-  surface at commit as busy errors.
+  surface at commit as busy errors. The engine refuses to switch to or from
+  MVCC inside a transaction, so the pool applies the pragma right after it
+  connects, before any statement.
 - `CREATE VIEW IF NOT EXISTS` is not idempotent. `PRAGMA defer_foreign_keys`
   and `foreign_key_check` are unsupported. `WITHOUT ROWID` and generated
   columns are experimental, behind `ConnectOptions::experimental`.
