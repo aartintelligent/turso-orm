@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.5](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.4...turso-orm-v0.1.5) - 2026-10-14
+
+### Fixed
+
+- *(driver)* require turso 0.8.3 for its mvcc correctness fixes ([#38](https://github.com/aartintelligent/turso-orm/pull/38))
+
 ## [0.1.4](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.3...turso-orm-v0.1.4) - 2026-10-03
 
 ### Added
