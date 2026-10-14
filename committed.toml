@@ -31,3 +31,8 @@ line_length    = 100
 
 # Conventional Commits descriptions are lowercase by convention.
 subject_capitalized = false
+
+# Dependabot writes its own commit bodies, which are not wrapped, and never
+# rewords them, so its commits are exempt. The pull request title still has to
+# be a Conventional Commit, since it becomes the squash commit on `main`.
+ignore_author_re = "^dependabot\\[bot\\]"

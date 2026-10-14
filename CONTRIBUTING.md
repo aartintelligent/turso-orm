@@ -84,7 +84,7 @@ single required status check. The `changes` job sizes each run:
 | Site | `just docs-build` | The documentation site builds in strict mode: no broken link, no missing snippet |
 | Spelling | `typos` | Sources and docs (`typos.toml`) |
 | API | CI only | `cargo-semver-checks` flags breaking changes on pull requests |
-| Commits | CI only | `committed` validates every commit of a pull request |
+| Commits | CI only | `committed` validates every commit of a pull request, except Dependabot's |
 
 While iterating, `cargo check --workspace` and a single test are the fast
 inner loop:
