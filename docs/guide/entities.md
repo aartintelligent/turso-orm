@@ -157,6 +157,12 @@ column and a `WHERE` on the primary key.
 | `save(db)` | `insert` when the key is `NotSet` or `Set`, `update` when it is `Unchanged`. | The `ActiveModel`, every field `Unchanged`, ready to be modified and saved again. |
 | `delete(db)` | `DELETE ... WHERE <key>`. | A `DeleteResult` with `rows_affected`. |
 
+`RETURNING *` is what makes `insert` hand back the stored model, and it
+costs the engine several times a plain insert. When the model is not
+needed, `Entity::insert(model).exec(db)` returns the key alone for a
+fraction of the time, and `Entity::insert_many` inside a transaction is
+the fast path for bulk loads.
+
 `save` is the convenient one for code that does not care whether the row
 exists yet:
 

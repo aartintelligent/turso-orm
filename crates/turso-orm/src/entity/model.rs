@@ -172,6 +172,11 @@ impl FromQueryResult for serde_json::Value {
     }
 }
 
+/// The stack buffer size for a prefixed column name in [`get_field`]: long
+/// enough for every generated `A_` / `B_` / `__via_` alias of a realistic
+/// column name.
+const PREFIXED_NAME_CAPACITY: usize = 96;
+
 /// Reads one column of `row` into a field type.
 ///
 /// Used by generated `from_query_result` impls; the column is looked up as
@@ -182,10 +187,24 @@ impl FromQueryResult for serde_json::Value {
 /// Returns [`DbErr::Driver`] when the column is missing from the row or
 /// cannot be decoded as `T`.
 pub fn get_field<T: FromValue>(row: &Row, prefix: &str, column: &str) -> Result<T> {
-    let name = if prefix.is_empty() {
-        column.to_owned()
-    } else {
-        format!("{prefix}{column}")
-    };
+    if prefix.is_empty() {
+        return row.get::<T>(column).map_err(DbErr::from);
+    }
+    // The prefixed name is assembled on the stack: this runs once per field
+    // and per row, so a heap allocation here dominated the decoding of a
+    // joined result set. Names longer than the buffer are rare and fall
+    // back to a `String`.
+    let mut buf = [0u8; PREFIXED_NAME_CAPACITY];
+    let len = prefix.len() + column.len();
+    if len <= buf.len() {
+        buf[..prefix.len()].copy_from_slice(prefix.as_bytes());
+        buf[prefix.len()..len].copy_from_slice(column.as_bytes());
+        // Both inputs are `str`, so their concatenation is valid UTF-8 and
+        // the check cannot fail; the fallback below keeps the code total.
+        if let Ok(name) = std::str::from_utf8(&buf[..len]) {
+            return row.get::<T>(name).map_err(DbErr::from);
+        }
+    }
+    let name = format!("{prefix}{column}");
     row.get::<T>(name.as_str()).map_err(DbErr::from)
 }

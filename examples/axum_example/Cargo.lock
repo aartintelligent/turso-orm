@@ -2217,7 +2217,7 @@ dependencies = [
 
 [[package]]
 name = "turso-orm"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2240,7 +2240,7 @@ dependencies = [
 
 [[package]]
 name = "turso-orm-driver"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2256,7 +2256,7 @@ dependencies = [
 
 [[package]]
 name = "turso-orm-macros"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2266,7 +2266,7 @@ dependencies = [
 
 [[package]]
 name = "turso-orm-migration"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "async-trait",
  "thiserror",
@@ -2277,7 +2277,7 @@ dependencies = [
 
 [[package]]
 name = "turso-sql"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "chrono",
  "serde_json",

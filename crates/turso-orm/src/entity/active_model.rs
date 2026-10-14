@@ -303,6 +303,12 @@ pub trait ActiveModelTrait: Clone + Send + Sync + std::fmt::Debug + Default {
     ///
     /// The [`ActiveModelBehavior`] hooks run around the statement.
     ///
+    /// `RETURNING` costs the engine several times a plain insert, so when
+    /// the stored model is not needed, `Entity::insert(model).exec(db)`
+    /// returns the key alone for a fraction of the time, and
+    /// `Entity::insert_many` inside a transaction is the fast path for bulk
+    /// loads.
+    ///
     /// # Errors
     ///
     /// Returns [`DbErr::RecordNotInserted`] when the statement inserted

@@ -103,9 +103,12 @@ pub trait Build {
     }
 }
 
+/// The initial capacity of the SQL text of a [`Writer`]: a qualified
+/// select of a handful of columns with a filter fits without growing.
+const INITIAL_SQL_CAPACITY: usize = 256;
+
 /// The rendering state: the SQL text being built and the values bound so
 /// far, in placeholder order.
-#[derive(Default)]
 struct Writer {
     /// The SQL text.
     sql: String,
@@ -114,6 +117,15 @@ struct Writer {
 }
 
 impl Writer {
+    /// Starts a writer with room for a typical statement, so that the text
+    /// does not grow through several reallocations while rendering.
+    fn new() -> Self {
+        Self {
+            sql: String::with_capacity(INITIAL_SQL_CAPACITY),
+            values: Vec::new(),
+        }
+    }
+
     /// Appends raw text.
     fn push(&mut self, s: &str) {
         self.sql.push_str(s);
@@ -121,8 +133,15 @@ impl Writer {
 
     /// Appends a double-quoted identifier, doubling embedded quotes.
     fn ident(&mut self, ident: &Ident) {
+        let name = ident.name();
         self.sql.push('"');
-        self.sql.push_str(&ident.name().replace('"', "\"\""));
+        // An embedded quote is the exception, so the common case appends
+        // the name as is instead of allocating an escaped copy.
+        if name.contains('"') {
+            self.sql.push_str(&name.replace('"', "\"\""));
+        } else {
+            self.sql.push_str(name);
+        }
         self.sql.push('"');
     }
 
@@ -552,7 +571,7 @@ impl Writer {
                 self.push(")");
             }
             other => {
-                let mut inner = Writer::default();
+                let mut inner = Writer::new();
                 inner.expr(other);
                 let inlined = Statement {
                     sql: inner.sql,
@@ -745,7 +764,7 @@ macro_rules! impl_build {
     ($($ty:ty => $method:ident),* $(,)?) => {$(
         impl Build for $ty {
             fn to_statement(&self) -> Statement {
-                let mut w = Writer::default();
+                let mut w = Writer::new();
                 w.$method(self);
                 w.finish()
             }
@@ -767,7 +786,7 @@ impl_build!(
 
 impl Build for Expr {
     fn to_statement(&self) -> Statement {
-        let mut w = Writer::default();
+        let mut w = Writer::new();
         w.expr(self);
         w.finish()
     }
@@ -782,6 +801,20 @@ impl Build for Statement {
 #[cfg(test)]
 mod tests {
     use crate::prelude::*;
+
+    /// An identifier is double-quoted as is, and an embedded quote is doubled.
+    #[test]
+    fn identifiers_are_quoted_and_embedded_quotes_doubled() {
+        let (sql, _) = Query::select()
+            .column(("t", "plain"))
+            .column(("t", "say \"hi\""))
+            .from("t")
+            .build();
+        assert_eq!(
+            sql,
+            "SELECT \"t\".\"plain\", \"t\".\"say \"\"hi\"\"\" FROM \"t\""
+        );
+    }
 
     /// A select with aliases, a join, mixed `AND` / `OR` conditions,
     /// grouping, ordering and paging renders in clause order with every

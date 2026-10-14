@@ -764,6 +764,24 @@ async fn enums_partial_models_and_conversions() {
 
     let removed = created.delete(&db).await.expect("model delete");
     assert_eq!(removed.rows_affected, 1);
+
+    // A model decodes under any prefix, including one too long for the
+    // stack buffer of the field reader, which then falls back to the heap.
+    let long = "x".repeat(120);
+    let cat = category(&db, "long prefix").await;
+    let row = category::Entity::find()
+        .select_only()
+        .expr_as(Expr::col(category::Column::Id), format!("{long}id"))
+        .expr_as(Expr::col(category::Column::Name), format!("{long}name"))
+        .filter(category::Column::Id.eq(cat.id))
+        .into_model::<turso_orm::Row>()
+        .one(&db)
+        .await
+        .expect("aliased row")
+        .expect("category row");
+    let decoded =
+        category::Model::from_query_result(&row, &long).expect("decode under a long prefix");
+    assert_eq!(decoded, cat);
 }
 
 /// JSON input fills an active model by column name and JSON output mirrors a row, tuples decode by position, `exists` probes without reading rows, and deletes can return the removed rows.
