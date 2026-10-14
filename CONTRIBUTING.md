@@ -58,7 +58,7 @@ CI runs them all on every pull request and push to `main`, and `ci-ok` is the
 single required status check. The `changes` job sizes each run:
 
 - A change that touches only documentation (the site under `docs/`,
-  `mkdocs.yml`, `overrides/`, the READMEs, the other Markdown files and
+  `zensical.toml`, `overrides/`, the READMEs, the other Markdown files and
   `typos.toml`) skips the build jobs: formatting, spelling and the commit lint
   still run, `ci-ok` still reports, and the site build of `docs.yml` guards
   the pages.
@@ -103,7 +103,7 @@ crates/turso-orm-macros/     derive macros (DeriveEntityModel, DeriveRelation, D
 crates/turso-orm/            entities, active models, queries, relations, chains, loaders, schema
 crates/turso-orm-migration/  migrations (MigratorTrait, SchemaManager)
 examples/                    standalone workspaces: basic, axum_example, actix_example
-docs/                        the documentation site (Zensical), built from mkdocs.yml
+docs/                        the documentation site (Zensical), built from zensical.toml
 ```
 
 Each crate depends only on the ones above it in that list. All crates share
@@ -198,7 +198,7 @@ Two layers, with different jobs:
 - **Rustdoc** is the API reference, published on docs.rs. `missing_docs` is
   enforced and CI builds it on nightly with `-D warnings`.
 - **The site** under `docs/`, rendered by Zensical (the Material for MkDocs
-  team's generator, reading `mkdocs.yml`) and published to GitHub Pages, is
+  team's generator, configured by `zensical.toml`) and published to GitHub Pages, is
   the guide: getting started, entities, queries,
   relations, transactions, migrations, the examples. It is kept small on
   purpose: fold a topic into an existing page before adding one. `just docs-serve`

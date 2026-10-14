@@ -101,12 +101,12 @@ library change must keep them compiling: run `just examples` after touching publ
 
 ## Documentation site
 
-`mkdocs.yml` + `docs/` is a Zensical site (the Material theme's successor, which reads the MkDocs-format
-config as is) published to GitHub Pages by `docs.yml`; the Python toolchain is pinned by `pyproject.toml`
+`zensical.toml` + `docs/` is a Zensical site (the Material theme's successor, configured in its native
+TOML format) published to GitHub Pages by `docs.yml`; the Python toolchain is pinned by `pyproject.toml`
 / `uv.lock` and driven through `uv`. Overrides are MiniJinja templates: no arbitrary Python calls. Rustdoc stays the API
 reference; the site is the guide. Code blocks are never pasted: pages include them with
 `--8<-- "path:name"` from the examples, between `// --8<-- [start:name]` / `[end:name]` marker
-comments. Those markers are the one accepted exception to the inline-comment rule. `strict: true`
+comments. Those markers are the one accepted exception to the inline-comment rule. `strict = true`
 makes a broken link or a missing marker fail the build, so run `just docs-build` after moving code
 that a page includes.
 
