@@ -139,7 +139,7 @@ Design rules:
 
 - **Other ORMs are not a source.** Do not copy code from another project
   into this repository; write it for this engine.
-- **Verify APIs against the pinned versions** (`turso` 0.8.1 above all)
+- **Verify APIs against the pinned versions** (`turso` 0.8.3 above all)
   before using them; do not code from memory of other releases.
 - **No abstraction without a demonstrated need**, and no second code path
   for a database this project does not target: there is one dialect.

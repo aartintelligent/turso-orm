@@ -60,7 +60,11 @@ turso-sql        = { version = "0.1.4", path = "crates/turso-sql", default-featu
 # features are off because they would force the `mimalloc` global allocator
 # and full-text search on every consumer; they are re-exposed as the opt-in
 # `mimalloc`, `fts` and `sync` features of the driver and of `turso-orm`.
-turso = { version = "0.8.1", default-features = false }
+# 0.8.3 is the floor because it fixes MVCC data loss the ORM can trigger: an
+# `AUTOINCREMENT` insert overwriting an explicit id, joins through a
+# non-unique index missing rows after a checkpoint, and two concurrent
+# deletes of one row both succeeding.
+turso = { version = "0.8.3", default-features = false }
 
 # The Turso Cloud HTTP client, behind the `serverless` feature of
 # `turso-orm-driver` and of `turso-orm`. Its API mirrors the embedded

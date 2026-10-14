@@ -277,6 +277,84 @@ async fn mvcc_write_conflict_is_busy() {
     first.commit().await.expect("commit first");
 }
 
+/// Under MVCC, a generated `AUTOINCREMENT` id never reuses an id that was
+/// inserted explicitly; `turso` 0.8.3 fixed the engine overwriting row 1.
+#[tokio::test]
+async fn mvcc_autoincrement_skips_explicit_ids() {
+    let db = Database::connect(ConnectOptions::in_memory().mvcc(true))
+        .await
+        .expect("open");
+    db.execute_unprepared("CREATE TABLE t (id INTEGER PRIMARY KEY AUTOINCREMENT, v TEXT NOT NULL)")
+        .await
+        .expect("create");
+    db.execute_unprepared("INSERT INTO t VALUES (1, 'a')")
+        .await
+        .expect("explicit id");
+    db.execute_unprepared("INSERT INTO t (v) VALUES ('b')")
+        .await
+        .expect("generated id");
+    let rows = db
+        .query_all(
+            Query::select()
+                .columns(["id", "v"])
+                .from("t")
+                .order_by("id", Order::Asc)
+                .to_statement(),
+        )
+        .await
+        .expect("select");
+    let rows: Vec<(i64, String)> = rows
+        .iter()
+        .map(|row| (row.get("id").unwrap(), row.get("v").unwrap()))
+        .collect();
+    assert_eq!(rows, [(1, "a".to_owned()), (2, "b".to_owned())]);
+}
+
+/// Under MVCC, a join through a non-unique index sees the rows inserted
+/// after a checkpoint as well as the checkpointed ones; `turso` 0.8.3 fixed
+/// the engine skipping the index seek that found them.
+#[tokio::test]
+async fn mvcc_index_join_sees_rows_inserted_after_checkpoint() {
+    let db = Database::connect(ConnectOptions::in_memory().mvcc(true))
+        .await
+        .expect("open");
+    for sql in [
+        "CREATE TABLE t (id INTEGER PRIMARY KEY, a INTEGER)",
+        "CREATE INDEX ia ON t (a)",
+        "CREATE TABLE o (k INTEGER)",
+        "INSERT INTO t VALUES (15, 2), (24, 3), (52, 3)",
+        "INSERT INTO o VALUES (2), (3)",
+    ] {
+        db.execute_unprepared(sql).await.expect(sql);
+    }
+    // The checkpoint moves the three rows into the B-tree, so the next
+    // insert is the only row left in the MVCC store; the pragma answers
+    // with a status row, hence the query.
+    db.query_all(Statement::from_string("PRAGMA wal_checkpoint(TRUNCATE)"))
+        .await
+        .expect("checkpoint");
+    db.execute_unprepared("INSERT INTO t VALUES (48, 3)")
+        .await
+        .expect("insert after checkpoint");
+    let rows = db
+        .query_all(
+            Query::select()
+                .expr(Expr::col(("t", "id")))
+                .from("o")
+                .join(
+                    JoinType::Inner,
+                    "t",
+                    Expr::col(("t", "a")).eq(Expr::col(("o", "k"))),
+                )
+                .order_by(("t", "id"), Order::Asc)
+                .to_statement(),
+        )
+        .await
+        .expect("join");
+    let ids: Vec<i64> = rows.iter().map(|row| row.get(0).unwrap()).collect();
+    assert_eq!(ids, [15, 24, 48, 52]);
+}
+
 /// Rows stream in order from the pool, where the stream carries its own
 /// pooled connection, and from a transaction, where it borrows the pinned
 /// one.
