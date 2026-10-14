@@ -173,6 +173,7 @@
     var hero = null;
     var canvas = null;
     var ctx = null;
+    var observer = null;
     var size = { width: 0, height: 0, dpr: 1 };
     var generation = 0;
     var last = 0;
@@ -346,28 +347,43 @@
         ctx.globalAlpha = 1;
     }
 
-    /* Fits the canvas to the hero at the device pixel ratio, capped at 2. */
+    /* Fits the canvas to the hero at the device pixel ratio, capped at 2.
+       Setting the bitmap size clears the canvas, so nothing changes when
+       the hero has not moved. */
     function resize() {
         var rect = hero.getBoundingClientRect();
-        size.width = Math.max(1, Math.round(rect.width));
-        size.height = Math.max(1, Math.round(rect.height));
-        size.dpr = Math.min(2, window.devicePixelRatio || 1);
-        canvas.width = size.width * size.dpr;
-        canvas.height = size.height * size.dpr;
-        ctx.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
+        var width = Math.max(1, Math.round(rect.width));
+        var height = Math.max(1, Math.round(rect.height));
+        var dpr = Math.min(2, window.devicePixelRatio || 1);
+        if (width === size.width && height === size.height && dpr === size.dpr) {
+            return;
+        }
+        size.width = width;
+        size.height = height;
+        size.dpr = dpr;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     /* Takes the hero of the current page, if any, and runs the loop on its
        canvas. A page without a hero, or whose hero is already in hand,
-       changes nothing. The loop keeps its generation and stops as soon as a
-       later mount has moved on; the time step is clamped so a tab coming
-       back from the background does not jump. */
+       changes nothing. The hero is watched by a `ResizeObserver` rather than
+       measured once: right after an instant navigation it has not reached
+       its final height yet, and a canvas sized then would be stretched. The
+       loop keeps its generation and stops as soon as a later mount has moved
+       on; the time step is clamped so a tab coming back from the background
+       does not jump. */
     function mount() {
         var next = document.querySelector(".tx-hero__canvas");
         if (next === canvas) {
             return;
         }
         generation += 1;
+        if (observer) {
+            observer.disconnect();
+            observer = null;
+        }
         window.removeEventListener("resize", resize);
         canvas = next;
         hero = next ? next.parentNode : null;
@@ -376,8 +392,15 @@
             canvas = null;
             return;
         }
+        size.width = 0;
+        size.height = 0;
         resize();
-        window.addEventListener("resize", resize);
+        if (typeof ResizeObserver === "function") {
+            observer = new ResizeObserver(resize);
+            observer.observe(hero);
+        } else {
+            window.addEventListener("resize", resize);
+        }
         last = 0;
         var token = generation;
         window.requestAnimationFrame(function frame(timestamp) {
