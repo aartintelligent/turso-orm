@@ -1,14 +1,14 @@
 {#-
   Home page template: a full-viewport hero with the text above the code
   window in a column centred on the page, over the animated schema that
-  `home.js` draws on the canvas. Without JavaScript the illustration in `assets/turso/hero.png`
-  stays as the background; the script swaps it out when it starts. It follows
-  the theme's own layout: the hero goes in the `hero` block, which the base
-  template places inside the container before the main area, and the main
-  area stays in the page, because on narrow screens it holds the navigation
-  drawer that the header's menu button opens. `home.css` and `home.js` are
-  loaded here only, so their rules need no scoping, and the stylesheet hides
-  the empty content.
+  `home.js` draws on the canvas. Without JavaScript the canvas stays empty
+  and the hero is the text and the code window on the plain Bunker
+  background. It follows the theme's own layout: the hero goes in the `hero`
+  block, which the base template places inside the container before the
+  main area, and the main area stays in the page, because on narrow screens
+  it holds the navigation drawer that the header's menu button opens.
+  `home.css` and `home.js` are loaded here only, so their rules need no
+  scoping, and the stylesheet hides the empty content.
 -#}
 {% extends "main.html" %}
 
@@ -18,7 +18,7 @@
 {% endblock %}
 
 {% block hero %}
-  <section class="tx-hero" style="background-image: url('{{ 'assets/turso/hero.png' | url }}')">
+  <section class="tx-hero">
     <canvas class="tx-hero__canvas" aria-hidden="true"></canvas>
     <div class="md-grid md-typeset tx-hero__inner">
       <div class="tx-hero__code">

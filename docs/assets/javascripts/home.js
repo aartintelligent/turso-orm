@@ -10,10 +10,9 @@
    Everything is drawn with the 2D canvas API and additive compositing, so
    the page needs no library and no build step. The hub `user` sits in the
    middle and the other tables ring it on two ellipses wider than they are
-   deep, so the schema spans the whole width of a landscape screen. Without
-   JavaScript the hero keeps its illustration; with `prefers-reduced-motion`
-   the schema is drawn once and stands still. `home.html` loads this file on
-   the home page only.
+   deep, so the schema spans the whole width of a landscape screen. With
+   `prefers-reduced-motion` the schema is drawn once and stands still.
+   `home.html` loads this file on the home page only.
    --------------------------------------------------------------------------- */
 
 (function () {
@@ -376,6 +375,5 @@
 
     resize();
     window.addEventListener("resize", resize);
-    hero.classList.add("tx-hero--live");
     window.requestAnimationFrame(frame);
 })();
