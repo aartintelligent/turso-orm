@@ -103,7 +103,59 @@ mod tag {
     impl ActiveModelBehavior for ActiveModel {}
 }
 
-/// Opens a fresh in-memory database with the three tables and their indexes.
+/// The `note` entity: its hooks are written with `#[async_trait]`, the way
+/// the 0.1 line documents them, so they must keep compiling and running
+/// against the natively async model traits.
+mod note {
+    use async_trait::async_trait;
+    use turso_orm::prelude::*;
+
+    /// A row of the `note` table.
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[turso(table_name = "note")]
+    pub(crate) struct Model {
+        #[turso(primary_key)]
+        pub id: i64,
+        pub body: String,
+        pub saves: i64,
+    }
+
+    /// The relations of `note`; there are none.
+    #[derive(Copy, Clone, Debug, DeriveRelation)]
+    pub(crate) enum Relation {}
+
+    #[async_trait]
+    impl ActiveModelBehavior for ActiveModel {
+        /// Trims the body and counts the saves.
+        async fn before_save<C: ConnectionTrait>(
+            mut self,
+            _db: &C,
+            insert: bool,
+        ) -> Result<Self, DbErr> {
+            if let ActiveValue::Set(body) = &self.body {
+                self.body = Set(body.trim().to_owned());
+            }
+            let saves = match self.saves {
+                ActiveValue::Set(n) | ActiveValue::Unchanged(n) => n,
+                ActiveValue::NotSet => 0,
+            };
+            self.saves = Set(if insert { 1 } else { saves + 1 });
+            Ok(self)
+        }
+
+        /// Refuses to delete a note that was saved only once.
+        async fn before_delete<C: ConnectionTrait>(self, _db: &C) -> Result<Self, DbErr> {
+            match self.saves {
+                ActiveValue::Set(1) | ActiveValue::Unchanged(1) => {
+                    Err(DbErr::Custom("saved once".to_owned()))
+                }
+                _ => Ok(self),
+            }
+        }
+    }
+}
+
+/// Opens a fresh in-memory database with the four tables and their indexes.
 async fn setup() -> Database {
     let db = Database::connect(ConnectOptions::in_memory().max_connections(4))
         .await
@@ -113,6 +165,7 @@ async fn setup() -> Database {
         schema.create_table_from_entity(user::Entity).to_statement(),
         schema.create_table_from_entity(post::Entity).to_statement(),
         schema.create_table_from_entity(tag::Entity).to_statement(),
+        schema.create_table_from_entity(note::Entity).to_statement(),
     ] {
         db.execute(stmt).await.expect("create table");
     }
@@ -496,4 +549,29 @@ async fn composite_keys_and_transactions() {
         .await
         .expect("closure");
     assert_eq!(n, 0);
+}
+
+/// Hooks declared with `#[async_trait]` keep running around insert, update
+/// and delete, so user code written for the boxed form stays valid.
+#[tokio::test]
+async fn hooks_written_with_async_trait_run() {
+    let db = setup().await;
+    let created = note::ActiveModel {
+        body: Set("  hello  ".to_owned()),
+        ..Default::default()
+    }
+    .insert(&db)
+    .await
+    .expect("insert");
+    assert_eq!((created.body.as_str(), created.saves), ("hello", 1));
+
+    let mut am: note::ActiveModel = created.clone().into();
+    am.body = Set(" again ".to_owned());
+    let updated = am.update(&db).await.expect("update");
+    assert_eq!((updated.body.as_str(), updated.saves), ("again", 2));
+
+    let refused = created.delete(&db).await.expect_err("saved once");
+    assert!(matches!(refused, DbErr::Custom(_)), "{refused}");
+    let removed = updated.delete(&db).await.expect("delete");
+    assert_eq!(removed.rows_affected, 1);
 }

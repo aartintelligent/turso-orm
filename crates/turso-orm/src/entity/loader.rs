@@ -19,7 +19,7 @@
 
 use std::collections::HashMap;
 
-use async_trait::async_trait;
+use std::future::Future;
 use turso_orm_driver::{ConnectionTrait, Row};
 use turso_sql::{Condition, Expr, JoinType, Value};
 
@@ -30,7 +30,6 @@ use super::relation::{Related, RelationDef, column_of};
 use crate::{DbErr, Result};
 
 /// Loads related rows for a batch of models in one query.
-#[async_trait]
 pub trait LoaderTrait {
     /// The entity of the models in the batch.
     type Entity: EntityTrait;
@@ -44,7 +43,11 @@ pub trait LoaderTrait {
     /// Returns [`DbErr::Custom`] when the relation names a column the
     /// entity does not have; [`DbErr::Driver`] when the query fails or a
     /// row cannot be decoded.
-    async fn load_one<R, C>(&self, _: R, db: &C) -> Result<Vec<Option<R::Model>>>
+    fn load_one<R, C>(
+        &self,
+        _: R,
+        db: &C,
+    ) -> impl Future<Output = Result<Vec<Option<R::Model>>>> + Send
     where
         R: EntityTrait,
         Self::Entity: Related<R>,
@@ -60,7 +63,11 @@ pub trait LoaderTrait {
     /// Returns [`DbErr::Custom`] when the relation names a column the
     /// entity does not have; [`DbErr::Driver`] when the query fails or a
     /// row cannot be decoded.
-    async fn load_many<R, C>(&self, _: R, db: &C) -> Result<Vec<Vec<R::Model>>>
+    fn load_many<R, C>(
+        &self,
+        _: R,
+        db: &C,
+    ) -> impl Future<Output = Result<Vec<Vec<R::Model>>>> + Send
     where
         R: EntityTrait,
         Self::Entity: Related<R>,
@@ -78,7 +85,11 @@ pub trait LoaderTrait {
     /// Returns [`DbErr::Custom`] when the relation has no junction or names
     /// a column the entity does not have; [`DbErr::Driver`] when the query
     /// fails or a row cannot be decoded.
-    async fn load_many_to_many<R, C>(&self, _: R, db: &C) -> Result<Vec<Vec<R::Model>>>
+    fn load_many_to_many<R, C>(
+        &self,
+        _: R,
+        db: &C,
+    ) -> impl Future<Output = Result<Vec<Vec<R::Model>>>> + Send
     where
         R: EntityTrait,
         Self::Entity: Related<R>,
@@ -230,7 +241,6 @@ where
     Ok((keys, grouped))
 }
 
-#[async_trait]
 impl<M: ModelTrait> LoaderTrait for Vec<M> {
     type Entity = M::Entity;
 
@@ -262,7 +272,6 @@ impl<M: ModelTrait> LoaderTrait for Vec<M> {
     }
 }
 
-#[async_trait]
 impl<M: ModelTrait> LoaderTrait for [M] {
     type Entity = M::Entity;
 

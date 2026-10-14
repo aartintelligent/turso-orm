@@ -2242,7 +2242,6 @@ dependencies = [
 name = "turso-orm-driver"
 version = "0.1.5"
 dependencies = [
- "async-trait",
  "chrono",
  "futures-util",
  "serde_json",

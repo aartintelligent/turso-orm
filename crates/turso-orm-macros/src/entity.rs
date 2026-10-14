@@ -426,7 +426,6 @@ pub(crate) fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
             }
         }
 
-        #[::turso_orm::__private::async_trait]
         impl ::turso_orm::entity::ActiveModelTrait for ActiveModel {
             type Entity = Entity;
 

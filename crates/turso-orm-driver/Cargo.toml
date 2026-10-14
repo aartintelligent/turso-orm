@@ -59,7 +59,6 @@ with-rust_decimal = ["turso-sql/with-rust_decimal", "dep:rust_decimal"]
 with-uuid         = ["turso-sql/with-uuid", "dep:uuid"]
 
 [dependencies]
-async-trait  = { workspace = true }
 chrono       = { workspace = true, optional = true }
 futures-util = { workspace = true }
 rust_decimal = { workspace = true, optional = true }

@@ -25,6 +25,8 @@
 //! `decode_field` is exposed through the crate's `__private` module for
 //! generated code only.
 
+use std::future::Future;
+
 use async_trait::async_trait;
 use turso_orm_driver::ConnectionTrait;
 use turso_sql::Value;
@@ -208,7 +210,6 @@ pub trait TryIntoModel<M> {
 }
 
 /// The mutable form of an entity, derived by `DeriveEntityModel`.
-#[async_trait]
 pub trait ActiveModelTrait: Clone + Send + Sync + std::fmt::Debug + Default {
     /// The entity this active model belongs to.
     type Entity: EntityTrait<ActiveModel = Self>;
@@ -314,16 +315,18 @@ pub trait ActiveModelTrait: Clone + Send + Sync + std::fmt::Debug + Default {
     /// Returns [`DbErr::RecordNotInserted`] when the statement inserted
     /// nothing; [`DbErr::Driver`] when the statement or the decoding of the
     /// returned row fails; any error raised by the hooks.
-    async fn insert<C: ConnectionTrait>(
+    fn insert<C: ConnectionTrait>(
         self,
         db: &C,
-    ) -> Result<<Self::Entity as EntityTrait>::Model>
+    ) -> impl Future<Output = Result<<Self::Entity as EntityTrait>::Model>> + Send
     where
         Self: ActiveModelBehavior,
     {
-        let am = <Self as ActiveModelBehavior>::before_save(self, db, true).await?;
-        let model = Insert::<Self>::one(am).exec_with_returning(db).await?;
-        <Self as ActiveModelBehavior>::after_save(model, db, true).await
+        async move {
+            let am = <Self as ActiveModelBehavior>::before_save(self, db, true).await?;
+            let model = Insert::<Self>::one(am).exec_with_returning(db).await?;
+            <Self as ActiveModelBehavior>::after_save(model, db, true).await
+        }
     }
 
     /// Updates the row matched by the primary key and returns the stored model.
@@ -337,16 +340,18 @@ pub trait ActiveModelTrait: Clone + Send + Sync + std::fmt::Debug + Default {
     /// [`DbErr::RecordNotUpdated`] when no row matches the key;
     /// [`DbErr::Driver`] when the statement or the decoding of the returned
     /// row fails; any error raised by the hooks.
-    async fn update<C: ConnectionTrait>(
+    fn update<C: ConnectionTrait>(
         self,
         db: &C,
-    ) -> Result<<Self::Entity as EntityTrait>::Model>
+    ) -> impl Future<Output = Result<<Self::Entity as EntityTrait>::Model>> + Send
     where
         Self: ActiveModelBehavior,
     {
-        let am = <Self as ActiveModelBehavior>::before_save(self, db, false).await?;
-        let model = UpdateOne::new(am).exec(db).await?;
-        <Self as ActiveModelBehavior>::after_save(model, db, false).await
+        async move {
+            let am = <Self as ActiveModelBehavior>::before_save(self, db, false).await?;
+            let model = UpdateOne::new(am).exec(db).await?;
+            <Self as ActiveModelBehavior>::after_save(model, db, false).await
+        }
     }
 
     /// Inserts when the primary key is `NotSet` or `Set`, updates when it is `Unchanged`.
@@ -358,17 +363,19 @@ pub trait ActiveModelTrait: Clone + Send + Sync + std::fmt::Debug + Default {
     ///
     /// Returns the errors of [`insert`](Self::insert) or
     /// [`update`](Self::update), whichever ran.
-    async fn save<C: ConnectionTrait>(self, db: &C) -> Result<Self>
+    fn save<C: ConnectionTrait>(self, db: &C) -> impl Future<Output = Result<Self>> + Send
     where
         Self: ActiveModelBehavior,
         <Self::Entity as EntityTrait>::Model: IntoActiveModel<Self>,
     {
-        let model = if self.is_update() {
-            self.update(db).await?
-        } else {
-            self.insert(db).await?
-        };
-        Ok(model.into_active_model())
+        async move {
+            let model = if self.is_update() {
+                self.update(db).await?
+            } else {
+                self.insert(db).await?
+            };
+            Ok(model.into_active_model())
+        }
     }
 
     /// Whether [`save`](Self::save) would update: every primary-key attribute is `Unchanged`.
@@ -394,14 +401,16 @@ pub trait ActiveModelTrait: Clone + Send + Sync + std::fmt::Debug + Default {
     /// Returns [`DbErr::PrimaryKeyNotSet`] when a key attribute is `NotSet`;
     /// [`DbErr::Driver`] when the statement fails; any error raised by the
     /// hooks.
-    async fn delete<C: ConnectionTrait>(self, db: &C) -> Result<DeleteResult>
+    fn delete<C: ConnectionTrait>(self, db: &C) -> impl Future<Output = Result<DeleteResult>> + Send
     where
         Self: ActiveModelBehavior,
     {
-        let am = <Self as ActiveModelBehavior>::before_delete(self, db).await?;
-        let result = crate::query::DeleteOne::new(am.clone()).exec(db).await?;
-        <Self as ActiveModelBehavior>::after_delete(am, db).await?;
-        Ok(result)
+        async move {
+            let am = <Self as ActiveModelBehavior>::before_delete(self, db).await?;
+            let result = crate::query::DeleteOne::new(am.clone()).exec(db).await?;
+            <Self as ActiveModelBehavior>::after_delete(am, db).await?;
+            Ok(result)
+        }
     }
 }
 

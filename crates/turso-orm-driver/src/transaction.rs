@@ -37,7 +37,6 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use async_trait::async_trait;
 use turso_sql::Statement;
 
 use crate::connection::{ConnectionTrait, StreamTrait, TransactionTrait};
@@ -377,7 +376,6 @@ impl Drop for Transaction {
     }
 }
 
-#[async_trait]
 impl ConnectionTrait for Transaction {
     async fn execute(&self, statement: Statement) -> Result<ExecResult> {
         self.prepare().await?;
@@ -414,7 +412,6 @@ impl StreamTrait for Transaction {
     }
 }
 
-#[async_trait]
 impl TransactionTrait for Transaction {
     async fn begin(&self) -> Result<Transaction> {
         self.begin_nested().await

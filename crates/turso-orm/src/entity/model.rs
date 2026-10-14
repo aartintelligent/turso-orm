@@ -13,7 +13,8 @@
 //! value does not decode as the field type, so that generic code can treat a
 //! bad value like any other error.
 
-use async_trait::async_trait;
+use std::future::Future;
+
 use turso_orm_driver::{ConnectionTrait, FromValue, Row};
 use turso_sql::Value;
 
@@ -24,7 +25,6 @@ use crate::query::{DeleteResult, Select};
 use crate::{DbErr, Result};
 
 /// A row of an entity as a plain struct, derived by `DeriveEntityModel`.
-#[async_trait]
 pub trait ModelTrait: Clone + Send + Sync + std::fmt::Debug {
     /// The entity this model belongs to.
     type Entity: EntityTrait<Model = Self>;
@@ -64,13 +64,13 @@ pub trait ModelTrait: Clone + Send + Sync + std::fmt::Debug {
     /// # Errors
     ///
     /// Returns the errors of [`ActiveModelTrait::delete`].
-    async fn delete<C>(self, db: &C) -> Result<DeleteResult>
+    fn delete<C>(self, db: &C) -> impl Future<Output = Result<DeleteResult>> + Send
     where
         C: ConnectionTrait,
         Self: IntoActiveModel<<Self::Entity as EntityTrait>::ActiveModel>,
         <Self::Entity as EntityTrait>::ActiveModel: ActiveModelBehavior,
     {
-        self.into_active_model().delete(db).await
+        async move { self.into_active_model().delete(db).await }
     }
 }
 

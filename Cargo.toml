@@ -72,10 +72,13 @@ turso = { version = "0.8.3", default-features = false }
 # execution code for both.
 turso_serverless = { version = "0.1.3" }
 
-# Object-safe async traits — `ConnectionTrait` and `TransactionTrait` in
-# `turso-orm-driver`, `ActiveModelTrait` and `LoaderTrait` in `turso-orm`,
-# `MigrationTrait` in `turso-orm-migration` — and re-exported by `turso-orm`
-# for the code emitted by `turso-orm-macros`.
+# Boxed async methods on the traits that users implement by hand with
+# `#[async_trait]`: `ActiveModelBehavior` in `turso-orm`, `MigrationTrait` and
+# `MigratorTrait` in `turso-orm-migration`, which re-export the attribute.
+# The traits the crates implement themselves (`ConnectionTrait`,
+# `TransactionTrait`, `ActiveModelTrait`, `ModelTrait`, `LoaderTrait`) use
+# native async methods with `Send` futures instead, which cost no allocation
+# per call.
 async-trait = { version = "0.1", default-features = false }
 
 # `Stream` and `stream::unfold` back the row streams of `turso-orm-driver`;
