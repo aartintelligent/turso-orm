@@ -64,15 +64,6 @@
     var QUERY_DEPTH = 3;
     var COOLING = 1.4;
 
-    var hero = document.querySelector(".tx-hero");
-    var canvas = document.querySelector(".tx-hero__canvas");
-    if (!hero || !canvas || !canvas.getContext) {
-        return;
-    }
-    var ctx = canvas.getContext("2d");
-    if (!ctx) {
-        return;
-    }
     var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     var wide = window.matchMedia("(min-width: 76.25em)");
 
@@ -172,11 +163,20 @@
         return node.children.length > 0;
     });
 
-    /* Live state: the pulses in flight, the next query time and the size of
-       the canvas. */
+    /* Live state: the pulses in flight, the next query time, the hero and
+       the canvas in hand with its context and size, and the generation of
+       the frame loop. The theme's instant navigation swaps the page without
+       reloading it, so the hero is looked up again on every arrival and the
+       loop of a hero that left the page stops by its generation. */
     var pulses = [];
     var nextQuery = 0.4;
+    var hero = null;
+    var canvas = null;
+    var ctx = null;
     var size = { width: 0, height: 0, dpr: 1 };
+    var generation = 0;
+    var last = 0;
+    var elapsed = 0;
 
     /* Starts a query at a parent row: the row flashes, then a pulse leaves
        towards each of its children. Arrivals at `QUERY_DEPTH` stop the walk. */
@@ -357,23 +357,49 @@
         ctx.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
     }
 
-    var last = 0;
-    var elapsed = 0;
-
-    /* One animation frame: the time step is clamped so a tab coming back
-       from the background does not jump, then simulate, project, draw. */
-    function frame(timestamp) {
-        var dt = last ? Math.min(0.05, (timestamp - last) / 1000) : 0;
-        last = timestamp;
-        elapsed += dt;
-        step(elapsed, dt);
-        draw(elapsed, project(elapsed));
-        if (!reduced) {
-            window.requestAnimationFrame(frame);
+    /* Takes the hero of the current page, if any, and runs the loop on its
+       canvas. A page without a hero, or whose hero is already in hand,
+       changes nothing. The loop keeps its generation and stops as soon as a
+       later mount has moved on; the time step is clamped so a tab coming
+       back from the background does not jump. */
+    function mount() {
+        var next = document.querySelector(".tx-hero__canvas");
+        if (next === canvas) {
+            return;
         }
+        generation += 1;
+        window.removeEventListener("resize", resize);
+        canvas = next;
+        hero = next ? next.parentNode : null;
+        ctx = next && next.getContext ? next.getContext("2d") : null;
+        if (!hero || !ctx) {
+            canvas = null;
+            return;
+        }
+        resize();
+        window.addEventListener("resize", resize);
+        last = 0;
+        var token = generation;
+        window.requestAnimationFrame(function frame(timestamp) {
+            if (token !== generation) {
+                return;
+            }
+            var dt = last ? Math.min(0.05, (timestamp - last) / 1000) : 0;
+            last = timestamp;
+            elapsed += dt;
+            step(elapsed, dt);
+            draw(elapsed, project(elapsed));
+            if (!reduced) {
+                window.requestAnimationFrame(frame);
+            }
+        });
     }
 
-    resize();
-    window.addEventListener("resize", resize);
-    window.requestAnimationFrame(frame);
+    /* `document$` is the theme's observable of the current document: it
+       emits once now and again after every instant navigation. */
+    if (window.document$ && typeof window.document$.subscribe === "function") {
+        window.document$.subscribe(mount);
+    } else {
+        mount();
+    }
 })();
