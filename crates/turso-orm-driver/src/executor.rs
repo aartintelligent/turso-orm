@@ -59,10 +59,11 @@ pub struct ExecResult {
 ///
 /// Values are kept in their storage class and decoded on access with
 /// [`FromValue`], so the same column can be read as `i64`, `bool` or
-/// `String`. The column index is shared between all rows of one result set.
+/// `String`, and [`take`](Self::take) moves a value out instead of copying
+/// it. The column names are shared between all rows of one result set.
 #[derive(Clone)]
 pub struct Row {
-    /// The column names and lookup index, shared across the result set.
+    /// The column names, shared across the result set.
     columns: Arc<Columns>,
     /// The values, in column order.
     values: Vec<Value>,

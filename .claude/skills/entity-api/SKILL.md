@@ -53,7 +53,9 @@ an unknown name is a spanned compile error on the user's attribute.
 - `find_also_related` aliases columns `A_<col>` / `B_<col>`;
   `FromQueryResult::from_query_result(row, prefix)` takes that prefix and
   `from_query_result_optional` returns `None` when every prefixed column is
-  `NULL`.
+  `NULL`. The derives also implement `from_query_result_mut`, which moves
+  the values out of the row through `Row::take` (the column is left `NULL`);
+  a hand-written impl only needs the borrowing form.
 - `count` and `exists` strip ordering, limit and offset from the inner query.
 - A table joined twice is aliased `table_n` by `Select::join_table`; the
   `ON` is rendered against the alias. `join_as` takes an explicit alias.
