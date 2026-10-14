@@ -138,7 +138,7 @@ pub trait TransactionTrait: Send + Sync {
 impl ConnectionTrait for Database {
     async fn execute(&self, statement: Statement) -> Result<ExecResult> {
         let conn = self.acquire().await?;
-        executor::execute(&conn, &statement).await
+        executor::execute(&conn, statement).await
     }
 
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult> {
@@ -148,12 +148,12 @@ impl ConnectionTrait for Database {
 
     async fn query_one(&self, statement: Statement) -> Result<Option<Row>> {
         let conn = self.acquire().await?;
-        executor::query_one(&conn, &statement).await
+        executor::query_one(&conn, statement).await
     }
 
     async fn query_all(&self, statement: Statement) -> Result<Vec<Row>> {
         let conn = self.acquire().await?;
-        executor::query_all(&conn, &statement).await
+        executor::query_all(&conn, statement).await
     }
 }
 
@@ -170,7 +170,7 @@ impl StreamTrait for Database {
             // stream as the holder, returning the slot to the pool when the
             // stream is dropped.
             let raw: Conn = (*conn).clone();
-            executor::stream(&raw, &statement, conn).await
+            executor::stream(&raw, statement, conn).await
         })
     }
 }

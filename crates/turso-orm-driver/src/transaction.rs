@@ -381,7 +381,7 @@ impl Drop for Transaction {
 impl ConnectionTrait for Transaction {
     async fn execute(&self, statement: Statement) -> Result<ExecResult> {
         self.prepare().await?;
-        executor::execute(self.conn(), &statement).await
+        executor::execute(self.conn(), statement).await
     }
 
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult> {
@@ -391,12 +391,12 @@ impl ConnectionTrait for Transaction {
 
     async fn query_one(&self, statement: Statement) -> Result<Option<Row>> {
         self.prepare().await?;
-        executor::query_one(self.conn(), &statement).await
+        executor::query_one(self.conn(), statement).await
     }
 
     async fn query_all(&self, statement: Statement) -> Result<Vec<Row>> {
         self.prepare().await?;
-        executor::query_all(self.conn(), &statement).await
+        executor::query_all(self.conn(), statement).await
     }
 }
 
@@ -409,7 +409,7 @@ impl StreamTrait for Transaction {
             self.prepare().await?;
             // The stream borrows the transaction, which already pins the
             // connection, so there is nothing extra to hold.
-            executor::stream(self.conn(), &statement, ()).await
+            executor::stream(self.conn(), statement, ()).await
         })
     }
 }

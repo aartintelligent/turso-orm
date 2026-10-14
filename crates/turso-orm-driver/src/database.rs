@@ -171,7 +171,7 @@ impl Database {
     /// query fails.
     pub async fn ping(&self) -> Result<()> {
         let conn = self.acquire().await?;
-        crate::executor::query_one(&conn, &Statement::from_string("SELECT 1")).await?;
+        crate::executor::query_one(&conn, Statement::from_string("SELECT 1")).await?;
         Ok(())
     }
 
@@ -218,13 +218,22 @@ impl Database {
     /// the idle-list mutex is poisoned, and [`Error::Turso`] when a new
     /// connection cannot be opened or configured.
     pub(crate) async fn acquire(&self) -> Result<PooledConnection> {
-        let permit = tokio::time::timeout(
-            self.inner.options.acquire_timeout,
-            Arc::clone(&self.inner.permits).acquire_owned(),
-        )
-        .await
-        .map_err(|_| Error::PoolTimeout)?
-        .map_err(|_| Error::Misuse("connection pool closed".into()))?;
+        // A free permit is taken without arming a timer: the timed wait
+        // exists for contention, so an uncontended query skips the timer
+        // registration.
+        let permit = match Arc::clone(&self.inner.permits).try_acquire_owned() {
+            Ok(permit) => permit,
+            Err(tokio::sync::TryAcquireError::Closed) => {
+                return Err(Error::Misuse("connection pool closed".into()));
+            }
+            Err(tokio::sync::TryAcquireError::NoPermits) => tokio::time::timeout(
+                self.inner.options.acquire_timeout,
+                Arc::clone(&self.inner.permits).acquire_owned(),
+            )
+            .await
+            .map_err(|_| Error::PoolTimeout)?
+            .map_err(|_| Error::Misuse("connection pool closed".into()))?,
+        };
 
         // The lock is released before the await below so that opening a
         // connection never blocks other borrowers from popping idle ones.

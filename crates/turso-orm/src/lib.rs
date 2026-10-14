@@ -92,7 +92,7 @@ pub use error::{DbErr, Result};
 pub mod __private {
     pub use crate::entity::active_model::decode_field;
     pub use crate::entity::iden::Static;
-    pub use crate::entity::model::get_field;
+    pub use crate::entity::model::{get_field, take_field};
     pub use async_trait::async_trait;
     pub use turso_orm_driver::{Error as DriverError, FromValue, Result as DriverResult, Row};
     pub use turso_sql::{Ident, IntoIden};
