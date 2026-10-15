@@ -8,8 +8,7 @@
 
 /* The hero fills the viewport under the header and the tabs. The schema
    turns across the whole of it; a column centred on the page holds the text
-   at the top and the code window at the bottom. The illustration is the
-   background until `home.js` starts and marks the hero live. */
+   at the top and the code window at the bottom. */
 .tx-hero {
     position: relative;
     display: flex;
@@ -20,14 +19,6 @@
     min-height: calc(100svh - 4.8rem);
     color: #ffffff;
     background-color: var(--turso-bunker);
-    background-position: left center;
-    background-repeat: no-repeat;
-    background-size: cover;
-}
-
-/* The image is set inline by `home.html`, hence `!important`. */
-.tx-hero--live {
-    background-image: none !important;
 }
 
 /* The canvas covers the hero under the text; it is sized by `home.js`. */
@@ -86,14 +77,12 @@
 }
 
 /* Narrow screens widen the column to the screen and lower it; the schema
-   stays behind, and the illustration, when it is still the background, is
-   cropped on its empty right side. The tabs are hidden at this width, so
-   only the 2.4rem header sits above the hero. */
+   stays behind. The tabs are hidden at this width, so only the 2.4rem
+   header sits above the hero. */
 @media screen and (max-width: 76.1875em) {
     .tx-hero {
         min-height: calc(100vh - 2.4rem);
         min-height: calc(100svh - 2.4rem);
-        background-position: 30% center;
     }
 
     /* The text now lies over the schema: a dark veil, strongest at the top
@@ -226,13 +215,8 @@
 }
 
 /* Phones keep the hero's text, buttons and code window as on wide screens,
-   centred over the schema; the illustration goes even without JavaScript.
-   The image is set inline by `home.html`, hence `!important`. */
+   centred over the schema. */
 @media screen and (max-width: 44.9375em) {
-    .tx-hero {
-        background-image: none !important;
-    }
-
     .tx-hero__inner {
         align-content: center;
     }
