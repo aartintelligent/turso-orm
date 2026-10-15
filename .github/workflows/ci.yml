@@ -58,6 +58,7 @@ jobs:
             code:
               - "crates/**"
               - "examples/**"
+              - "benches/**"
               - "Cargo.toml"
               - "Cargo.lock"
               - "deny.toml"

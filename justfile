@@ -53,6 +53,15 @@ doc:
     RUSTDOCFLAGS="--cfg docsrs -D warnings" cargo +nightly doc --workspace --all-features --no-deps
 
 # ------------------------------------------------------------------------------
+# Benchmarks — Criterion groups comparing the ORM with the raw client; the
+# reports land under target/criterion. Never run by CI: see CONTRIBUTING.md.
+# ------------------------------------------------------------------------------
+
+# Run every benchmark group; Criterion flags go after `--`, e.g. `just bench -- --save-baseline main`.
+bench *ARGS:
+    cargo bench -p benches {{ARGS}}
+
+# ------------------------------------------------------------------------------
 # Supply chain & compatibility — dependency policy, feature combinations, MSRV.
 # ------------------------------------------------------------------------------
 

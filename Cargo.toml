@@ -6,6 +6,7 @@
 # Members are listed in dependency order: `turso-sql` (no engine), then
 # `turso-orm-driver` (engine access), `turso-orm-macros` (proc macros),
 # `turso-orm` (the ORM itself) and `turso-orm-migration` (built on the ORM).
+# `benches` closes the list: the benchmarks, a member that is never published.
 # ------------------------------------------------------------------------------
 
 [workspace]
@@ -15,6 +16,7 @@ members = [
     "crates/turso-orm-macros",
     "crates/turso-orm",
     "crates/turso-orm-migration",
+    "benches",
 ]
 # The examples are separate workspaces (see `examples/*/Cargo.toml`) so that
 # their web frameworks never enter this dependency graph; `exclude` stops
@@ -133,6 +135,11 @@ uuid = { version = "1", default-features = false, features = ["std", "v4"] }
 # Dev-dependency: temporary directories for the on-disk database tests of
 # `turso-orm-driver` and `turso-orm`.
 tempfile = "3"
+
+# Dev-dependency: the harness of the benchmarks in `benches/`. `async_tokio`
+# drives the ORM's async calls from a Criterion loop on a tokio runtime, and
+# `html_reports` writes the comparison pages under `target/criterion`.
+criterion = { version = "0.8", features = ["async_tokio", "html_reports"] }
 
 # ------------------------------------------------------------------------------
 # Quality gates — inherited by every member through `[lints] workspace = true`.

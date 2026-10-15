@@ -72,6 +72,7 @@ just example            # cargo run -p turso-orm --example quickstart, then rela
 just examples           # fmt-check + clippy + test of every examples/* workspace, then runs basic
 just docs-serve         # live preview of the documentation site (Zensical through uv)
 just docs-build         # strict build of the site, as CI runs it
+just bench              # Criterion benchmarks, the ORM next to the raw client; never run by CI
 
 # Single integration test (file, then test name as filter)
 cargo nextest run -p turso-orm --test entity relations_and_loaders
@@ -99,6 +100,18 @@ is the runnable counterpart the site includes snippets from.
 `tests/crud_tests.rs` against an in-memory database). They depend on the ORM by `path`, so a
 library change must keep them compiling: run `just examples` after touching public API.
 
+## Benchmarks
+
+`benches/` is a workspace member (package `benches`, `publish = false`, version `0.0.0`, excluded
+from release-plz) holding the Criterion benchmarks: `src/lib.rs` has the blog schema (`user`, `post`,
+`tag`, `post_tag`), a deterministic seed and a `Fixture` that opens two in-memory databases, one
+behind the ORM and one behind the raw `turso` client, since an in-memory database cannot be shared
+between two client objects. `select.rs`, `insert.rs`, `relations.rs` and `render.rs` are the
+`[[bench]]` targets (`harness = false`); every group has an `orm` and a `raw` function doing the same
+work, and `render.rs` compares the entity API with the bare `turso-sql` builder. CI compiles them
+(`clippy --all-targets`, MSRV) but never runs them; results are measured locally with
+`--save-baseline` / `--baseline`. Keep the two sides of a group equivalent when editing one.
+
 ## Documentation site
 
 `zensical.toml` + `docs/` is a Zensical site (the Material theme's successor, configured in its native
@@ -115,7 +128,7 @@ that a page includes.
 `.github/workflows/ci.yml` also runs these; mirror them locally before pushing. The `changes` job sizes
 each run: documentation-only changes skip the build jobs, pushes to `main` and `release-plz-*` pull
 requests run a reduced set (Clippy, Linux tests, docs, cargo-deny, coverage), and a pull request
-touching `crates/`, `examples/`, a manifest, a lint config or a workflow runs all of them; `ci-ok`
+touching `crates/`, `examples/`, `benches/`, a manifest, a lint config or a workflow runs all of them; `ci-ok`
 accepts skipped jobs:
 
 - **Docs on nightly with `-D warnings`** (`just doc`) and `rustdoc::broken_intra_doc_links = deny`:

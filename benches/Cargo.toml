@@ -1,0 +1,66 @@
+# ------------------------------------------------------------------------------
+# `benches` — the performance benchmarks of the workspace.
+#
+# A workspace member that is never published: `cargo bench` (the `bench`
+# recipe in the justfile) runs the Criterion groups below against an
+# in-memory database. Every group measures the ORM next to the raw `turso`
+# client doing the same work, so a number reads as the cost of the ORM layer
+# over the engine, not as absolute engine throughput. `src/lib.rs` holds the
+# schema, the data set and the two databases the groups share; each
+# `[[bench]]` file is one topic, and `harness = false` hands `main` to
+# Criterion.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "benches"
+description            = "Benchmarks of turso-orm against the raw turso client"
+publish                = false
+authors.workspace      = true
+edition.workspace      = true
+license.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
+# Fixed, not the workspace version: the crate is never released, so it stays
+# out of the shared version group (see release-plz.toml).
+version = "0.0.0"
+
+# Quality gates are centralized in the workspace root `Cargo.toml`.
+[lints]
+workspace = true
+
+# The fixtures have no tests of their own. Without test targets, `cargo test
+# --workspace` builds nothing for this crate and Criterion stays out of the
+# test runs of CI.
+[lib]
+test    = false
+doctest = false
+bench   = false
+
+[dependencies]
+# The current-thread runtime the benchmarks drive the async calls on.
+tokio     = { workspace = true, features = ["rt"] }
+turso     = { workspace = true }
+turso-orm = { workspace = true, features = ["macros"] }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name    = "select"
+path    = "select.rs"
+harness = false
+
+[[bench]]
+name    = "insert"
+path    = "insert.rs"
+harness = false
+
+[[bench]]
+name    = "relations"
+path    = "relations.rs"
+harness = false
+
+[[bench]]
+name    = "render"
+path    = "render.rs"
+harness = false
