@@ -60,7 +60,7 @@ it locally, and exchanges data with the cloud only when asked to:
 
 ```sh
 DATABASE__MODE=sync DATABASE__PATH=replica.db \
-DATABASE__URL=libsql://<database>.turso.io DATABASE__AUTH_TOKEN=<token> cargo run
+DATABASE__URL=turso://<database>.turso.io DATABASE__AUTH_TOKEN=<token> cargo run
 ```
 
 The replica pulls once at start-up. After that, `POST /sync` pushes the

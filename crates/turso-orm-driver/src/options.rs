@@ -50,7 +50,7 @@ pub enum Source {
 #[derive(Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct RemoteOptions {
-    /// The database URL (`libsql://`, `turso://` or `https://`).
+    /// The database URL (`turso://`, `libsql://` or `https://`).
     pub url: String,
     /// The bearer token for the database.
     pub auth_token: Option<String>,
@@ -79,7 +79,7 @@ impl fmt::Debug for RemoteOptions {
 pub struct SyncOptions {
     /// The local replica file.
     pub path: PathBuf,
-    /// The remote database URL (`libsql://`, `turso://` or `https://`).
+    /// The remote database URL (`turso://`, `libsql://` or `https://`).
     pub remote_url: String,
     /// The bearer token for the remote database.
     pub auth_token: Option<String>,
@@ -437,9 +437,9 @@ mod tests {
     #[cfg(feature = "sync")]
     #[test]
     fn debug_redacts_the_replica_token() {
-        let opts = ConnectOptions::sync("replica.db", "libsql://db.turso.io").auth_token("s3cret");
+        let opts = ConnectOptions::sync("replica.db", "turso://db.turso.io").auth_token("s3cret");
         let printed = format!("{opts:?}");
-        assert!(printed.contains("libsql://db.turso.io"));
+        assert!(printed.contains("turso://db.turso.io"));
         assert!(printed.contains("Some(<redacted>)"));
         assert!(!printed.contains("s3cret"));
     }
@@ -448,11 +448,11 @@ mod tests {
     #[cfg(feature = "serverless")]
     #[test]
     fn debug_redacts_the_remote_secrets() {
-        let opts = ConnectOptions::remote("libsql://db.turso.io")
+        let opts = ConnectOptions::remote("turso://db.turso.io")
             .auth_token("s3cret")
             .remote_encryption_key("a2V5");
         let printed = format!("{opts:?}");
-        assert!(printed.contains("libsql://db.turso.io"));
+        assert!(printed.contains("turso://db.turso.io"));
         assert!(!printed.contains("s3cret"));
         assert!(!printed.contains("a2V5"));
     }

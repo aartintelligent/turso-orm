@@ -27,7 +27,7 @@ in one function:
 
 Entities, queries, transactions and migrations are the same in all four
 modes; only this function changes. The URL of a Turso Cloud database is
-accepted as `libsql://`, `turso://` or `https://`, and the token must be a
+accepted as `turso://`, the older `libsql://` or `https://`, and the token must be a
 database token: an API token of the account is refused with `401
 Unauthorized`.
 
