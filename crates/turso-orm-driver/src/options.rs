@@ -21,6 +21,7 @@
 //!
 //! [`Database::connect`]: crate::Database::connect
 
+use std::fmt;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -46,7 +47,7 @@ pub enum Source {
 /// The settings of a remote Turso Cloud database.
 #[cfg(feature = "serverless")]
 #[cfg_attr(docsrs, doc(cfg(feature = "serverless")))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct RemoteOptions {
     /// The database URL (`libsql://`, `turso://` or `https://`).
@@ -57,10 +58,24 @@ pub struct RemoteOptions {
     pub remote_encryption_key: Option<String>,
 }
 
+#[cfg(feature = "serverless")]
+impl fmt::Debug for RemoteOptions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RemoteOptions")
+            .field("url", &self.url)
+            .field("auth_token", &self.auth_token.as_ref().map(|_| Redacted))
+            .field(
+                "remote_encryption_key",
+                &self.remote_encryption_key.as_ref().map(|_| Redacted),
+            )
+            .finish()
+    }
+}
+
 /// The settings of an embedded replica synchronised with Turso Cloud.
 #[cfg(feature = "sync")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct SyncOptions {
     /// The local replica file.
     pub path: PathBuf,
@@ -73,13 +88,44 @@ pub struct SyncOptions {
     pub bootstrap_if_empty: bool,
 }
 
+#[cfg(feature = "sync")]
+impl fmt::Debug for SyncOptions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SyncOptions")
+            .field("path", &self.path)
+            .field("remote_url", &self.remote_url)
+            .field("auth_token", &self.auth_token.as_ref().map(|_| Redacted))
+            .field("bootstrap_if_empty", &self.bootstrap_if_empty)
+            .finish()
+    }
+}
+
 /// The encryption-at-rest settings — experimental in Turso.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Encryption {
     /// The cipher name, for example `aes256gcm`.
     pub cipher: String,
     /// The hex-encoded key.
     pub hexkey: String,
+}
+
+impl fmt::Debug for Encryption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Encryption")
+            .field("cipher", &self.cipher)
+            .field("hexkey", &Redacted)
+            .finish()
+    }
+}
+
+/// Stands in for a secret in `Debug` output, so that options written to a
+/// log — a `Database` prints its source — never show a token or a key.
+struct Redacted;
+
+impl fmt::Debug for Redacted {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("<redacted>")
+    }
 }
 
 /// Turso engine features that are opt-in because they are still
@@ -370,5 +416,44 @@ impl From<PathBuf> for ConnectOptions {
 impl From<&Path> for ConnectOptions {
     fn from(path: &Path) -> Self {
         Self::new(path)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The `Debug` form of the encryption settings shows the cipher and hides the key.
+    #[test]
+    fn debug_redacts_the_encryption_key() {
+        let opts = ConnectOptions::new("app.db").encryption("aes256gcm", "deadbeef");
+        let printed = format!("{opts:?}");
+        assert!(printed.contains("aes256gcm"));
+        assert!(printed.contains("<redacted>"));
+        assert!(!printed.contains("deadbeef"));
+    }
+
+    /// The `Debug` form of a replica's options shows the URL and hides the token.
+    #[cfg(feature = "sync")]
+    #[test]
+    fn debug_redacts_the_replica_token() {
+        let opts = ConnectOptions::sync("replica.db", "libsql://db.turso.io").auth_token("s3cret");
+        let printed = format!("{opts:?}");
+        assert!(printed.contains("libsql://db.turso.io"));
+        assert!(printed.contains("Some(<redacted>)"));
+        assert!(!printed.contains("s3cret"));
+    }
+
+    /// The `Debug` form of a remote database's options hides the token and the key.
+    #[cfg(feature = "serverless")]
+    #[test]
+    fn debug_redacts_the_remote_secrets() {
+        let opts = ConnectOptions::remote("libsql://db.turso.io")
+            .auth_token("s3cret")
+            .remote_encryption_key("a2V5");
+        let printed = format!("{opts:?}");
+        assert!(printed.contains("libsql://db.turso.io"));
+        assert!(!printed.contains("s3cret"));
+        assert!(!printed.contains("a2V5"));
     }
 }
