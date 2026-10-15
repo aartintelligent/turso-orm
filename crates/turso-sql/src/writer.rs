@@ -802,6 +802,64 @@ impl Build for Statement {
 mod tests {
     use crate::prelude::*;
 
+    /// A plain selection is counted in place: `COUNT(*)` replaces the
+    /// select list and the ordering, the join and the filter stay.
+    #[test]
+    fn count_rows_counts_a_plain_selection_in_place() {
+        let (sql, values) = Query::select()
+            .column(("post", "id"))
+            .column(("post", "title"))
+            .from("post")
+            .inner_join(
+                "user",
+                Expr::col(("user", "id")).eq(Expr::col(("post", "user_id"))),
+            )
+            .and_where(Expr::col(("user", "active")).eq(true))
+            .order_by(("post", "id"), Order::Desc)
+            .count_rows("n")
+            .build();
+        assert_eq!(
+            sql,
+            "SELECT COUNT(*) AS \"n\" FROM \"post\" INNER JOIN \"user\" ON \"user\".\"id\" = \
+             \"post\".\"user_id\" WHERE \"user\".\"active\" = ?"
+        );
+        assert_eq!(values, vec![Value::from(true)]);
+    }
+
+    /// `DISTINCT`, `GROUP BY`, `HAVING`, `LIMIT` and `OFFSET` each change the
+    /// number of rows, so the query is counted as a subquery.
+    #[test]
+    fn count_rows_wraps_a_shaped_selection_in_a_subquery() {
+        let shaped = [
+            Query::select()
+                .column(("post", "user_id"))
+                .from("post")
+                .distinct(),
+            Query::select()
+                .column(("post", "user_id"))
+                .from("post")
+                .group_by(Expr::col(("post", "user_id"))),
+            Query::select()
+                .column(("post", "user_id"))
+                .from("post")
+                .group_by(Expr::col(("post", "user_id")))
+                .and_having(Func::count_star().gt(1)),
+            Query::select().column(("post", "id")).from("post").limit(5),
+            Query::select()
+                .column(("post", "id"))
+                .from("post")
+                .offset(5),
+        ];
+        for select in shaped {
+            let (sql, _) = select.count_rows("n").build();
+            assert!(
+                sql.starts_with("SELECT COUNT(*) AS \"n\" FROM (SELECT "),
+                "{sql}"
+            );
+            assert!(sql.ends_with(") AS \"sub\""), "{sql}");
+        }
+    }
+
     /// An identifier is double-quoted as is, and an embedded quote is doubled.
     #[test]
     fn identifiers_are_quoted_and_embedded_quotes_doubled() {

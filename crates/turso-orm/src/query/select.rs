@@ -29,8 +29,7 @@ use std::pin::Pin;
 use futures_util::{Stream, TryStreamExt};
 use turso_orm_driver::{ConnectionTrait, Row, StreamTrait};
 use turso_sql::{
-    Build, Condition, Expr, Func, IntoCondition, IntoIden, JoinType, Order, Statement, TableRef,
-    Value,
+    Build, Condition, Expr, IntoCondition, IntoIden, JoinType, Order, Statement, TableRef, Value,
 };
 
 use crate::entity::relation::column_of;
@@ -702,19 +701,22 @@ impl<M: FromQueryResult> Selector<M> {
             .reset_offset()
     }
 
-    /// Counts the rows with `SELECT COUNT(*) FROM (query)`.
+    /// Counts the rows the query selects.
     ///
-    /// Ordering, limit and offset are stripped from the inner query because
-    /// they do not affect the total and would only slow the count down.
+    /// Ordering, limit and offset are stripped first: they do not affect the
+    /// total, which is what a caller paging through the rows wants. A plain
+    /// selection is then counted as `SELECT COUNT(*)` over its own tables,
+    /// joins and filter, which the engine answers from an index without
+    /// reading a row; a query with `DISTINCT`, `GROUP BY` or `HAVING` is
+    /// counted as `SELECT COUNT(*) FROM (query)`, since its row count is not
+    /// the table's.
     ///
     /// # Errors
     ///
     /// Returns [`DbErr::RecordNotFound`] when the count query returns no
     /// row; [`DbErr::Driver`] when the query fails.
     pub async fn count<C: ConnectionTrait>(self, db: &C) -> Result<u64> {
-        let outer = turso_sql::Select::new()
-            .expr_as(Func::count_star(), "num_items")
-            .from_subquery(self.unordered(), "sub");
+        let outer = self.unordered().count_rows("num_items");
         let row = db
             .query_one(outer.to_statement())
             .await?

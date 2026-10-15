@@ -254,6 +254,35 @@ async fn queries_filters_order_pagination_count_stream() {
         2
     );
 
+    // A plain selection is counted in place and ignores its window: five
+    // users are active whatever the limit. `DISTINCT` and `GROUP BY` change
+    // the row count, so they are counted through a subquery.
+    let windowed = user::Entity::find()
+        .filter(user::Column::Active.eq(true))
+        .order_by_desc(user::Column::Score)
+        .limit(2)
+        .count(&db)
+        .await
+        .expect("windowed count");
+    assert_eq!(windowed, 5);
+    let distinct = user::Entity::find()
+        .select_only()
+        .column(user::Column::Active)
+        .distinct()
+        .count(&db)
+        .await
+        .expect("distinct count");
+    assert_eq!(distinct, 2);
+    let grouped = user::Entity::find()
+        .select_only()
+        .column(user::Column::Active)
+        .group_by(user::Column::Active)
+        .having(Func::count_star().gt(3))
+        .count(&db)
+        .await
+        .expect("grouped count");
+    assert_eq!(grouped, 2);
+
     let paginator = user::Entity::find()
         .order_by_asc(user::Column::Id)
         .paginate(&db, 4);
