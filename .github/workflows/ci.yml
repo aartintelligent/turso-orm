@@ -193,6 +193,11 @@ jobs:
           RUSTUP_TOOLCHAIN: ${{ steps.msrv.outputs.version }}
 
   # Guards feature independence: every feature pair compiles on its own.
+  # `fts`, `mimalloc` and `sync` are left out: they hold no code of this
+  # workspace, only a forward to the engine, and each of their combinations
+  # rebuilds the engine with another feature set, which made the job run for
+  # twenty minutes. They are still compiled together by the `--all-features`
+  # test and docs jobs.
   features:
     name: Feature powerset
     needs: [changes]
@@ -207,7 +212,7 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-hack
-      - run: cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps
+      - run: cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps --exclude-features fts,mimalloc,sync
 
   # Guards the examples: each one is a separate workspace, formatted, linted
   # and tested on its own; the console example must also run to completion.

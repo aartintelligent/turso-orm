@@ -83,7 +83,7 @@ single required status check. The `changes` job sizes each run:
 | Tests | `just test`, `just doctest` | The suite on Linux, macOS and Windows, plus the doctests |
 | Docs | `just doc` | Nightly rustdoc with the docs.rs flags, warnings and broken links are errors |
 | Supply chain | `just deny` | Advisories, licences, bans and sources (`deny.toml`) |
-| Features | `just hack` | Every feature pair compiles on its own |
+| Features | `just hack` | Every feature pair compiles on its own, except the engine pass-through features `fts`, `mimalloc` and `sync`, which hold no code of ours and are compiled together by the test and docs jobs |
 | MSRV | `just msrv` | The workspace compiles on `rust-version` |
 | Examples | `just examples` | Each example workspace is formatted, linted and tested; `basic` runs |
 | Site | `just docs-build` | The documentation site builds in strict mode: no broken link, no missing snippet |

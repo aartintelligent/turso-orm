@@ -145,7 +145,9 @@ under `benches/` alone turns on Clippy only (it compiles the benchmarks); `ci-ok
   every `[`link`]` in `///` must resolve. Feature-gated public items need
   `#[cfg_attr(docsrs, doc(cfg(feature = "...")))]`.
 - **Feature powerset** (`just hack`): every feature pair must compile alone, so never rely on a
-  default feature being present inside library code.
+  default feature being present inside library code. `fts`, `mimalloc` and `sync` are excluded: they
+  only forward to the engine and each combination rebuilds it; `--all-features` jobs still compile
+  them together.
 - **MSRV 1.94** (`just msrv`): `rust-toolchain.toml` pins 1.97.1 for development, but code must
   compile on 1.94. Do not use std APIs or language features stabilized after 1.94.
 - **typos** (`typos.toml`), **cargo-semver-checks** on PRs, and a cross-platform test matrix
