@@ -5,4 +5,5 @@
 pub mod agent;
 pub mod catalog;
 pub mod page;
+pub mod sync;
 pub mod thread;

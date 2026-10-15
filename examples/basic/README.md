@@ -53,6 +53,24 @@ For example, to keep the data in a file:
 DATABASE__MODE=file DATABASE__PATH=agents.db cargo run
 ```
 
+To work against Turso Cloud, give the URL of the database and a database
+token (not an API token of the account). `remote` sends every statement
+over HTTP; `sync` keeps an embedded replica in the file, reads and writes
+it locally, and exchanges data with the cloud only when asked to:
+
+```sh
+DATABASE__MODE=sync DATABASE__PATH=replica.db \
+DATABASE__URL=libsql://<database>.turso.io DATABASE__AUTH_TOKEN=<token> cargo run
+```
+
+The replica pulls once at start-up. After that, `POST /sync` pushes the
+writes made through the API and pulls what other writers committed; the
+other modes answer `409 Conflict` to it:
+
+```sh
+curl -X POST localhost:7407/sync
+```
+
 The server applies the migrations itself. To operate them by hand on that
 file, `migrate` takes `up`, `down`, `status`, `fresh`, `refresh` or
 `reset`:

@@ -6,6 +6,8 @@
 //! say. No file is read. Where the server listens and what tracing shows
 //! are not settings: they are constants of `main.rs` and `telemetry.rs`.
 
+use std::fmt;
+
 use config::{Config, ConfigError, Environment};
 use serde::{Deserialize, Serialize};
 
@@ -24,7 +26,7 @@ pub enum Mode {
 }
 
 /// How to open the database.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Settings {
     /// The mode.
     pub mode: Mode,
@@ -50,6 +52,20 @@ impl Default for Settings {
             foreign_keys: true,
             max_connections: 8,
         }
+    }
+}
+
+/// Prints every setting but the token, which a log must never show.
+impl fmt::Debug for Settings {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Settings")
+            .field("mode", &self.mode)
+            .field("path", &self.path)
+            .field("url", &self.url)
+            .field("auth_token", &"<redacted>")
+            .field("foreign_keys", &self.foreign_keys)
+            .field("max_connections", &self.max_connections)
+            .finish()
     }
 }
 

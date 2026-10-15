@@ -11,6 +11,9 @@ use turso_orm::DbErr;
 pub enum ApiError {
     /// The named resource does not exist.
     NotFound(&'static str),
+    /// The database is not an embedded replica, so there is nothing to
+    /// synchronise.
+    NotAReplica,
     /// The database refused or failed the operation.
     Db(DbErr),
 }
@@ -27,6 +30,10 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             Self::NotFound(what) => (StatusCode::NOT_FOUND, format!("{what} not found")),
+            Self::NotAReplica => (
+                StatusCode::CONFLICT,
+                "the database is not an embedded replica".to_owned(),
+            ),
             Self::Db(err) if err.is_unique_violation() => (StatusCode::CONFLICT, err.to_string()),
             Self::Db(err) if err.is_foreign_key_violation() => {
                 (StatusCode::UNPROCESSABLE_ENTITY, err.to_string())

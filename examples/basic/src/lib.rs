@@ -7,9 +7,10 @@
 //! two, `router` lists every route, and `error` maps a `DbErr` to a status.
 //! Around them, `settings` reads the database configuration, `db` opens the
 //! database in the mode it names, `state` carries the pool and the settings
-//! into the handlers, and `telemetry` sets up tracing. The documentation site
-//! includes the services, the DTOs, the error mapping, a handler and the
-//! connection block by block.
+//! into the handlers, and `telemetry` sets up tracing. In the `sync` mode
+//! the database is an embedded replica, and `POST /sync` is how its writes
+//! reach Turso Cloud. The documentation site includes the services, the
+//! DTOs, the error mapping, a handler and the connection block by block.
 
 pub mod db;
 pub mod dto;
