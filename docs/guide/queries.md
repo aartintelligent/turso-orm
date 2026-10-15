@@ -15,7 +15,7 @@ methods executes it:
 |---|---|---|
 | `one(db)` | adds `LIMIT 1` | `Option<Model>` |
 | `all(db)` | as built | `Vec<Model>` |
-| `count(db)` | wraps the query in `SELECT COUNT(*) FROM (...)` | `u64` |
+| `count(db)` | `SELECT COUNT(*)` over the query's tables and filter, or over `(...)` when the query is `DISTINCT`, grouped or filtered by `HAVING` | `u64` |
 | `exists(db)` | wraps the query in `SELECT EXISTS (...)` | `bool` |
 | `stream(db)` | as built | a stream of `Model`s |
 | `paginate(db, size)` | adds `LIMIT ... OFFSET ...` per page | a `Paginator` |
@@ -69,9 +69,12 @@ string in a filter is safe.
 `order_by(column, Order)` add `ORDER BY` clauses in the order you call
 them. `limit(n)` and `offset(n)` map directly to SQL; `distinct()` adds
 `DISTINCT`; `group_by(column)` and `having(condition)` are there for
-aggregate queries. `count` deliberately drops ordering, limit and offset
-from the inner query: they do not change the total and would only slow
-it down.
+aggregate queries. `count` deliberately drops ordering, limit and offset:
+they do not change the total and would only slow it down. A plain
+selection is then counted in place, as `COUNT(*)` over the same tables,
+joins and `WHERE`, which the engine answers from an index without reading
+a row; a `DISTINCT`, grouped or `HAVING`-filtered query is counted as a
+subquery, since its row count is not the table's.
 
 ## Pagination and streaming
 
