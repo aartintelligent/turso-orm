@@ -6,7 +6,7 @@
 //! id.
 //!
 //! ```text
-//! TURSO_DATABASE_URL=libsql://… TURSO_AUTH_TOKEN=… \
+//! TURSO_DATABASE_URL=turso://… TURSO_AUTH_TOKEN=… \
 //!     cargo test -p turso-orm-driver --features serverless --test remote
 //! ```
 

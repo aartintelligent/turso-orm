@@ -6,12 +6,16 @@
 use axum::Router;
 use axum::routing::{delete, get, patch, post, put};
 
-use crate::handler::{agents, catalog, threads};
+use crate::handler::{agents, catalog, sync, threads};
 use crate::state::AppState;
 
 /// Builds the router over `state`.
 pub fn build(state: AppState) -> Router {
     Router::new()
+        // The replica.
+        .route("/sync", post(sync::run))
+        .route("/sync/checkpoint", post(sync::checkpoint))
+        .route("/sync/stats", get(sync::stats))
         // The catalog.
         .route(
             "/models",

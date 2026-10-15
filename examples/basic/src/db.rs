@@ -8,7 +8,9 @@ use crate::settings::{Mode, Settings};
 /// Opens the database the settings describe: four modes, one `ConnectOptions` each.
 ///
 /// The entities, the queries, the transactions and the migrations are the
-/// same in every mode; only this function knows where the data lives.
+/// same in every mode; only this function knows where the data lives. A
+/// replica is pulled once here, so that a file reopened after a while serves
+/// what the cloud holds now rather than what it held at the last run.
 pub async fn connect(settings: &Settings) -> Result<Database, DbErr> {
     let options = match settings.mode {
         Mode::Memory => ConnectOptions::in_memory(),
@@ -25,6 +27,9 @@ pub async fn connect(settings: &Settings) -> Result<Database, DbErr> {
             .max_connections(settings.max_connections),
     )
     .await?;
+    if settings.mode == Mode::Sync {
+        db.pull().await?;
+    }
     Ok(db)
 }
 // --8<-- [end:connect]

@@ -42,11 +42,13 @@ nav = [
     ] },
     { "Documentation" = [
         { "Quickstart" = "guide/quickstart.md" },
+        { "Database" = "guide/database.md" },
         { "Entities" = "guide/entities.md" },
         { "Queries" = "guide/queries.md" },
         { "Relations" = "guide/relations.md" },
         { "Transactions" = "guide/transactions.md" },
         { "Migrations" = "guide/migrations.md" },
+        { "Observability" = "guide/observability.md" },
     ] },
     { "Performance" = [
         { "Explain" = "performance/explain.md" },

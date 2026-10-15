@@ -30,6 +30,25 @@
 //! - `turso::Error` carries only strings for most variants, so
 //!   [`ErrorKind`] is derived by variant and, for MVCC conflicts, by message.
 //!
+//! # Tracing
+//!
+//! Every module emits [`tracing`] events under its own target, so that a
+//! subscriber can follow one layer at a time or all of them together:
+//!
+//! - `turso_orm_driver::database`: `info` when a database is opened, with
+//!   its source and pool size, and when a replica is pushed, pulled or
+//!   checkpointed; `debug` when a connection is opened or discarded and
+//!   when a replica's stats are read; `trace` when a connection is acquired
+//!   or returned.
+//! - `turso_orm_driver::transaction`: `debug` when a transaction or a
+//!   savepoint begins, commits or rolls back, with its depth; `warn` when
+//!   one is dropped unfinished.
+//! - `turso_orm_driver::executor`: `debug` for every statement handed to
+//!   the engine, transaction control and pragmas included.
+//!
+//! The `Debug` form of the options redacts tokens and keys, so the events
+//! never show a secret.
+//!
 //! # Example
 //!
 //! ```no_run
@@ -58,6 +77,9 @@ mod transaction;
 
 pub use connection::{ConnectionTrait, StreamTrait, TransactionTrait};
 pub use database::Database;
+#[cfg(feature = "sync")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
+pub use database::ReplicaStats;
 pub use decode::FromValue;
 pub use error::{ConstraintKind, Error, ErrorKind, Result};
 pub use executor::{ExecResult, Row, RowStream};

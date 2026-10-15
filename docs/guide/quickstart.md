@@ -17,28 +17,15 @@ Feature flags are listed on the
 
 ## Open a database
 
-The first decision is where the data lives. Four modes, one
-`ConnectOptions` each:
-
-| Mode | Options | For |
-|---|---|---|
-| In memory | `ConnectOptions::in_memory()` | Tests, prototypes, short-lived agents: the database lives as long as the pool. |
-| File | `ConnectOptions::new("app.db")` | Desktop tools, services with local state, anything that must survive a restart. |
-| Turso Cloud, replica | `ConnectOptions::sync("replica.db", url).auth_token(token)` | A local file kept in sync with a Turso Cloud database: reads stay local, writes are forwarded. Needs the `sync` feature. |
-| Turso Cloud, HTTP | `ConnectOptions::remote(url).auth_token(token)` | No disk at all, every statement over HTTP: functions at the edge. Needs the `serverless` feature. |
-
-The basic example reads the mode from its settings and opens the
-database in one function:
-
-```rust
---8<-- "examples/basic/src/db.rs:connect"
-```
-
-`Database` is a pool of engine connections, cheap to clone and safe to
-share. Entities, queries, transactions and migrations are the same in all
-four modes; only this function changes. Tokens, encryption and the other
-options are on the [compatibility page](../overview/compatibility.md#turso),
-transactions under [Transactions](transactions.md).
+The first decision is where the data lives: in memory, in a local file, in
+an embedded replica of a Turso Cloud database, or in Turso Cloud over HTTP.
+One `ConnectOptions` constructor each, and `Database::connect` returns a
+pool of engine connections, cheap to clone and safe to share. The program
+below opens an in-memory database with `ConnectOptions::in_memory()`, which
+is all a first run needs; the four modes, the pool's options and how a
+replica exchanges data with the cloud are on the
+[database page](database.md). Entities, queries, transactions and
+migrations are the same in every mode.
 
 ## Describe a table
 

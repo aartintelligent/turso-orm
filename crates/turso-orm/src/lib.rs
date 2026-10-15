@@ -97,6 +97,9 @@ pub mod __private {
     pub use turso_orm_driver::{Error as DriverError, FromValue, Result as DriverResult, Row};
     pub use turso_sql::{Ident, IntoIden};
 }
+#[cfg(feature = "sync")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
+pub use turso_orm_driver::ReplicaStats;
 pub use turso_orm_driver::{
     ConnectOptions, ConnectionTrait, Database, ExecResult, Row, StreamTrait, Transaction,
     TransactionMode, TransactionTrait,

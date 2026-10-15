@@ -2,7 +2,10 @@
 # Benchmarks — measures the ORM against the raw client and opens a pull request
 # with the report for the locked `turso` version.
 #
-# Started by hand from the Actions tab, when the `turso` version changes. The
+# Runs when a version of the ORM is published, so that the report always
+# states the measurements of the released code, and by hand from the Actions
+# tab when the `turso` version changes between releases. Every release creates
+# one GitHub release per crate; only the `turso-orm` one starts the job. The
 # benchmarks are never part of CI: a shared runner is too noisy to compare two
 # commits of this repository, but the ORM-to-raw ratio survives the noise and
 # is what the report records (see docs/performance/explain.md). The report
@@ -15,6 +18,8 @@ name: Benchmarks
 
 on:
   workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -24,6 +29,8 @@ jobs:
   # the pull request for that `turso` version.
   report:
     name: Report
+    # The releases of the other four crates carry the same code; one run per version.
+    if: github.event_name != 'release' || startsWith(github.event.release.tag_name, 'turso-orm-v')
     runs-on: ubuntu-latest
     permissions:
       contents: write

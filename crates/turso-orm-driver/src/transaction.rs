@@ -200,6 +200,7 @@ impl Transaction {
     pub(crate) async fn begin_top(conn: PooledConnection, mode: TransactionMode) -> Result<Self> {
         let budget = conn.options().busy_timeout.unwrap_or_default();
         retry_busy(budget, || async { conn.execute_raw(mode.sql()).await }).await?;
+        tracing::debug!(?mode, "transaction begun");
         Ok(Self {
             shared: Arc::new(Shared {
                 conn,
@@ -233,6 +234,7 @@ impl Transaction {
             .execute_raw(&format!("SAVEPOINT sp{id}"))
             .await?;
         self.shared.state().savepoints.push(id);
+        tracing::debug!(depth = self.depth + 1, "nested transaction begun");
         Ok(Self {
             shared: Arc::clone(&self.shared),
             savepoint: Some(id),
@@ -319,6 +321,11 @@ impl Transaction {
                 }
                 self.shared.state().savepoints.pop();
             }
+        }
+        if rollback {
+            tracing::debug!(depth = self.depth, "transaction rolled back");
+        } else {
+            tracing::debug!(depth = self.depth, "transaction committed");
         }
         Ok(())
     }
