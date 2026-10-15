@@ -26,6 +26,9 @@ version      = "0.1.0"
 edition      = "2024"
 rust-version = "1.94"
 publish      = false
+# Two binaries live here, the server and `migrate`; a bare `cargo run` starts
+# the server, as the README says, and `migrate` is reached with `--bin`.
+default-run = "turso-orm-example-basic"
 
 # The library is what the tests and the two binaries share; its short name is
 # what `tests/*.rs` and `src/bin/migrate.rs` import.
