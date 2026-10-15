@@ -197,10 +197,12 @@ House rules:
   a service.
 - Behaviour changes come with a test; bug fixes come with the test that
   would have caught them.
-- The one test that needs a network, the serverless round trip in
-  `crates/turso-orm-driver/tests/remote.rs`, reads `TURSO_DATABASE_URL`
-  and `TURSO_AUTH_TOKEN` and skips when they are unset. Point it at a
-  scratch database; CI does not run it.
+- The two tests that need a network, the serverless round trip in
+  `crates/turso-orm-driver/tests/remote.rs` and the replica push and pull
+  in `crates/turso-orm-driver/tests/sync.rs`, read `TURSO_DATABASE_URL`
+  and `TURSO_AUTH_TOKEN` and skip when they are unset. Point them at a
+  scratch database with a database token (an API token of the account is
+  refused with `401`); CI does not run them.
 - Documentation examples are compile-checked doctests wherever possible.
 - Tests never mutate the process environment.
 

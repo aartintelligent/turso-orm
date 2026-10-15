@@ -233,7 +233,10 @@ deliberately excludes the `clock` feature so `Local` never enters the API.
   pool applies it right after `connect()`); `CREATE VIEW IF NOT EXISTS` is not idempotent;
   `PRAGMA defer_foreign_keys` and `foreign_key_check` are unsupported; `WITHOUT ROWID` and generated
   columns sit behind `ConnectOptions::experimental`. Over HTTP (`ConnectOptions::remote`) the busy
-  timeout and MVCC do not apply; the remote end-to-end test in `crates/turso-orm-driver/tests/remote.rs`
-  needs `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` and skips without them.
+  timeout and MVCC do not apply. An embedded replica (`ConnectOptions::sync`) reads and writes its
+  local file only: nothing reaches the cloud until `Database::push` and nothing arrives until
+  `Database::pull`, the engine never synchronises on its own. The end-to-end tests in
+  `crates/turso-orm-driver/tests/remote.rs` and `tests/sync.rs` need `TURSO_DATABASE_URL` and
+  `TURSO_AUTH_TOKEN` (a database token, not an API token) and skip without them.
 - Conventional Commits drive `release-plz`; all crates share one version (`version_group`), and
   `chore`/`ci`/`build`/`test`/`style` commits are skipped from changelogs.
