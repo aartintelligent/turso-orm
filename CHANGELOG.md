@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.6...turso-orm-v0.1.7) - 2026-10-15
+
+### Added
+
+- *(driver)* add ReplicaSync and wait for a replica's write lock like a local file ([#62](https://github.com/aartintelligent/turso-orm/pull/62))
+- *(driver)* trace every statement and transaction, and keep the example replica in sync ([#60](https://github.com/aartintelligent/turso-orm/pull/60))
+
 ## [0.1.6](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.5...turso-orm-v0.1.6) - 2026-10-15
 
 ### Documentation
