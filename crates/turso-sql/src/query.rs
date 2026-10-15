@@ -17,7 +17,7 @@
 //! - [`Join`], [`JoinType`], [`OnConflict`], [`Returning`], [`SelectItem`]:
 //!   the clauses they are built from.
 
-use crate::expr::{Condition, Expr, IntoCondition, Order};
+use crate::expr::{Condition, Expr, Func, IntoCondition, Order};
 use crate::iden::{ColumnRef, Ident, IntoIden, TableRef};
 use crate::value::Value;
 
@@ -188,6 +188,34 @@ impl Select {
     pub fn from_subquery(mut self, subquery: Select, alias: impl IntoIden) -> Self {
         self.from_subquery = Some((Box::new(subquery), alias.into_iden()));
         self
+    }
+
+    /// Turns the query into one that counts its rows, as a single column
+    /// named `alias`.
+    ///
+    /// A plain selection, without `DISTINCT`, `GROUP BY`, `HAVING`, `LIMIT`
+    /// or `OFFSET`, is counted in place: its select list and its ordering
+    /// are replaced by `COUNT(*)` over the same tables, joins and `WHERE`,
+    /// which selects exactly as many rows and lets the engine answer from an
+    /// index without reading a row. Any other query is counted as
+    /// `SELECT COUNT(*) FROM (query) AS sub`, the only form that is right
+    /// for all of them, at the price of materializing the query first.
+    #[must_use]
+    pub fn count_rows(self, alias: impl IntoIden) -> Self {
+        let plain = !self.distinct
+            && self.group_by.is_empty()
+            && self.having.is_empty()
+            && self.limit.is_none()
+            && self.offset.is_none();
+        if plain {
+            self.clear_items()
+                .clear_order_by()
+                .expr_as(Func::count_star(), alias)
+        } else {
+            Self::new()
+                .expr_as(Func::count_star(), alias)
+                .from_subquery(self, "sub")
+        }
     }
 
     /// Adds a `JOIN table ON cond` of the given kind.
