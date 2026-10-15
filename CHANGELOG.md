@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.5...turso-orm-v0.1.6) - 2026-10-15
+
+### Documentation
+
+- *(workspace)* describe the moving decoders and drop the version from the bug template ([#45](https://github.com/aartintelligent/turso-orm/pull/45))
+
+### Performance
+
+- *(orm)* count a plain selection in place instead of through a subquery ([#53](https://github.com/aartintelligent/turso-orm/pull/53))
+- *(workspace)* move values out of owned rows and skip the pool timer when a permit is free ([#42](https://github.com/aartintelligent/turso-orm/pull/42))
+- *(workspace)* cut the per-row and per-query allocations of the hot paths ([#40](https://github.com/aartintelligent/turso-orm/pull/40))
+
 ## [0.1.5](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.4...turso-orm-v0.1.5) - 2026-10-14
 
 ### Fixed
