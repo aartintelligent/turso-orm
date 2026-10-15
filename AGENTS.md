@@ -107,7 +107,9 @@ calls, no HTTP; the site's blocks), `handler/` (one short function per route) an
 in code and `DATABASE__*` environment overrides (no file; the listen address and the log filter are
 constants), `db.rs` opens the four modes (`memory`, `file`, `sync`, `remote`, hence the `sync` and
 `serverless` features on its `turso-orm`), `state.rs` is the `AppState` with
-`FromRef<AppState> for Database`, `telemetry.rs` the tracing setup; `tests/api.rs` drives the router
+`FromRef<AppState> for Database` and, in the `sync` mode, the `ReplicaSync` task that `main` starts
+through `service::sync::start` and shuts down after the server (the `/sync` routes drive it;
+`DATABASE__SYNC_INTERVAL` sets its rhythm), `telemetry.rs` the tracing setup; `tests/api.rs` drives the router
 with `oneshot` in memory, `tests/migrations.rs` applies and reverts the migrations, both are what CI
 runs; `cargo run` serves on 127.0.0.1:7407. Entity names stay in snake_case (`llm_model`, not `model`:
 every entity module already has a `Model` struct). The example depends on the ORM by `path`, so a

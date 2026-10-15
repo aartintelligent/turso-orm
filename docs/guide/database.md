@@ -79,39 +79,54 @@ pool:
 | `checkpoint()` | Folds the replica's write-ahead log into its file. |
 | `stats()` | What the replica knows about itself: changes waiting to be pushed, the size of its logs, the last push and pull, the revision it is at, the bytes exchanged. |
 
-Push and pull are the pair an application calls most, usually together:
+Calling them by hand is the simplest arrangement: push after each batch of
+writes, pull before a read that must be fresh. For a process that runs for
+long, the driver offers `ReplicaSync`, an optional task that does the
+rounds on a schedule: every interval it pushes, pulls, checkpoints as its
+`SyncPolicy` says and reads the stats, one round at a time, logging a
+failed round at `warn` and waiting longer before the next until one
+succeeds. Nothing starts without it being asked, and the four operations
+stay callable next to it. The example starts it from its settings in the
+`sync` mode:
 
 ```rust
---8<-- "examples/basic/src/service/sync.rs:push_pull"
+--8<-- "examples/basic/src/service/sync.rs:start"
 ```
 
-The example exposes the four as one resource, `/sync`, refused in the
-other modes since a plain database has no replica:
+The handle is the only hold on the task: dropping it stops the loop at
+once, `shutdown` pushes one last time before stopping, which is what the
+example does when `Ctrl-C` ends the server:
+
+```rust
+--8<-- "examples/basic/src/main.rs:main"
+```
+
+The routes drive the task rather than the pool. `POST /sync` forces a
+round, serialised with the task's own, and `GET /sync/stats` returns what
+the last round saw without touching the engine, both refused in the other
+modes since a plain database has no replica:
 
 ```rust
 --8<-- "examples/basic/src/handler/sync.rs:sync"
 ```
 
-`POST /sync/checkpoint` and `GET /sync/stats` sit behind the two other
-functions of the same service:
+`POST /sync/checkpoint` keeps one primitive callable by hand, outside the
+task's rhythm:
 
 ```rust
---8<-- "examples/basic/src/service/sync.rs:checkpoint_stats"
+--8<-- "examples/basic/src/service/sync.rs:checkpoint"
 ```
 
-When to call them is the application's business. A service that owns its
-data pushes after each batch of writes, or on a timer; one that shares the
-database pulls before a read that must be fresh. The connection function
-above pulls once when the replica is opened, so that a file reopened after
-a while serves what the cloud holds now and not what it held at the last
-run.
+The connection function above pulls once when the replica is opened, so
+that a file reopened after a while serves what the cloud holds now and not
+what it held at the last run, before the first round is due.
 
 The checkpoint matters to a replica that runs for long. Next to its file,
 the replica keeps two logs: the write-ahead log every local write appends
 to, and a revert log holding what undoes the changes not yet pushed. Both
 grow until a push followed by a checkpoint, so the natural place for
-`checkpoint` is right after a successful `push`. The stats make those
-decisions measurable: a pending count that keeps growing between pushes
+`checkpoint` is right after a successful `push`, which is the task's
+default policy. The stats make those decisions measurable: a pending count that keeps growing between pushes
 means they are failing, a write-ahead log past a threshold calls for a
 checkpoint, and the time of the last pull says how stale the replica may
 be.
@@ -147,7 +162,9 @@ place.
     end-to-end test in `crates/turso-orm-driver/tests/sync.rs` exercises
     exactly that: a row written in the replica reaches the HTTP side after
     `push`, a row written over HTTP reaches the replica after `pull`, and
-    the stats count the pending change before the push and none after.
+    the stats count the pending change before the push and none after. A
+    second test drives a `ReplicaSync` through a round, a forced one and a
+    shutdown.
 
 ## Over HTTP
 
