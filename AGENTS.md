@@ -116,7 +116,8 @@ benches-only change turns on, plus the MSRV check when code changes). They
 measure the ORM over each `turso` version, not this repository's own changes. `src/bin/report.rs`
 reads `target/criterion` and writes the page `docs/performance/turso-<version>.md` (version from
 `Cargo.lock`), then inserts its nav entry under the `# report: versions` comment of the Performance
-section in `zensical.toml` when the version is new; `docs/performance/explain.md` is the hand-written
+section in `zensical.toml` when the version is new and sets `extra.turso_version`, which the home page
+hero shows; `docs/performance/explain.md` is the hand-written
 introduction of that section. `just bench-report` runs it locally;
 `.github/workflows/bench.yml` (`workflow_dispatch`, started by hand after a `turso` upgrade) runs it on
 a runner and opens a `bench/turso-<version>` pull request with `RELEASE_PLZ_TOKEN`.

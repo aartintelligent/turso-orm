@@ -7,7 +7,8 @@
 //! the `turso` release resolved in `Cargo.lock`: the same version overwrites its page, a new one
 //! adds a page, and the pages are the history. It then makes sure `zensical.toml` lists the page
 //! in the Performance section, inserting the entry under the marker comment when the version is
-//! new, so that a `turso` upgrade needs no edit of the site configuration by hand.
+//! new, and that its `extra.turso_version`, which the home page hero shows, names the same
+//! version, so that a `turso` upgrade needs no edit of the site configuration by hand.
 //!
 //! The page records the machine and the toolchain next to the numbers. Absolute times are only
 //! comparable on one machine; the ORM-to-raw ratio in the last column is comparable anywhere and
@@ -30,6 +31,8 @@ use serde_json::Value;
 
 /// The comment of `zensical.toml` under which the version pages are listed, newest first.
 const MARKER: &str = "# report: versions";
+/// The key of `zensical.toml` that the home page hero shows as the engine version.
+const VERSION_KEY: &str = "turso_version = ";
 /// The order of the tables in a fragment: the first segment of a Criterion group id.
 const SECTIONS: [&str; 6] = [
     "select",
@@ -95,6 +98,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     if ensure_listed(&config, &context.turso)? {
         println!(
             "added Turso {} to the Performance section of {}",
+            context.turso,
+            config.display()
+        );
+    }
+    if ensure_version(&config, &context.turso)? {
+        println!(
+            "set the hero's turso version to {} in {}",
             context.turso,
             config.display()
         );
@@ -266,6 +276,22 @@ fn ensure_listed(config: &Path, version: &str) -> Result<bool, Box<dyn Error>> {
     updated.push_str(&entry);
     updated.push_str(&text[at..]);
     fs::write(config, updated)?;
+    Ok(true)
+}
+
+/// Sets the `turso_version` key of `zensical.toml` to `version` when it differs.
+///
+/// Returns whether the configuration changed.
+fn ensure_version(config: &Path, version: &str) -> Result<bool, Box<dyn Error>> {
+    let text = fs::read_to_string(config)?;
+    let wanted = format!("{VERSION_KEY}\"{version}\"");
+    let Some(line) = text.lines().find(|line| line.starts_with(VERSION_KEY)) else {
+        return Err(format!("{} has no `{VERSION_KEY}` key", config.display()).into());
+    };
+    if line == wanted {
+        return Ok(false);
+    }
+    fs::write(config, text.replacen(line, &wanted, 1))?;
     Ok(true)
 }
 

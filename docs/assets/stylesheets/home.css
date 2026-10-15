@@ -135,6 +135,25 @@
     color: var(--turso-aqua);
 }
 
+/* The button row: the two calls to action on the left, the engine version
+   pushed to the right end; on a narrow column the version wraps below them. */
+.tx-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 0.6rem;
+}
+
+/* The engine version: information, not a control, so the note's gray text
+   with no border and no link, pushed to the right end of the row. */
+.tx-hero__version {
+    margin-left: auto;
+    font-size: 0.64rem;
+    color: #9ca3af;
+    text-shadow: 0 0 0.6rem rgba(13, 19, 24, 0.9);
+    white-space: nowrap;
+}
+
 /* Pill buttons, aqua on dark like turso.tech's call to action. */
 .tx-hero__actions .md-button {
     margin: 0 0.6rem 0 0;

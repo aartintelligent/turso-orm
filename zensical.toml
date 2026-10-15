@@ -134,6 +134,9 @@ pymdownx.tasklist.custom_checkbox = true
 
 [project.extra]
 generator = false
+# The `turso` version the home page hero shows. `benches/src/bin/report.rs`
+# keeps it equal to the version resolved in Cargo.lock; never edit it by hand.
+turso_version = "0.8.3"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
