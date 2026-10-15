@@ -91,7 +91,7 @@ types are on the [entities page](entities.md).
 ```rust
 db.execute(
     Schema::new()
-        .create_table_from_entity(user::Entity)
+        .create_table_from_entity(agent::Entity)
         .to_statement(),
 )
 .await?;
@@ -111,4 +111,5 @@ its generated id. `find` starts a query, `filter` narrows it with the
 generated `Column` enum, `one` runs it. Everything the builder can do is
 on the [queries page](queries.md), and the
 [examples on GitHub](https://github.com/aartintelligent/turso-orm/tree/main/examples)
-show complete programs, including two web APIs.
+show complete programs on one shared schema, an agent runtime: providers,
+models, agents, threads, records and tools.

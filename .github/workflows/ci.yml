@@ -230,9 +230,8 @@ jobs:
         with:
           save-if: ${{ github.ref == 'refs/heads/main' }}
           workspaces: |
+            examples/common
             examples/basic
-            examples/axum_example
-            examples/actix_example
       - run: |
           for manifest in examples/*/Cargo.toml; do
             echo "::group::$manifest"

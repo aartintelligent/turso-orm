@@ -444,6 +444,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "252afb9ae5eaa683babdc6a068b3f5726eb19e05070c731f9b2a23a7c3e8ed34"
 
 [[package]]
+name = "entity"
+version = "0.1.0"
+dependencies = [
+ "turso-orm",
+]
+
+[[package]]
 name = "env_filter"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1940,7 +1947,7 @@ dependencies = [
 
 [[package]]
 name = "turso-orm"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1956,7 +1963,7 @@ dependencies = [
 
 [[package]]
 name = "turso-orm-driver"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "async-trait",
  "chrono",
@@ -1974,6 +1981,7 @@ dependencies = [
 name = "turso-orm-example-basic"
 version = "0.1.0"
 dependencies = [
+ "entity",
  "futures-util",
  "serde_json",
  "tokio",
@@ -1982,7 +1990,7 @@ dependencies = [
 
 [[package]]
 name = "turso-orm-macros"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1992,7 +2000,7 @@ dependencies = [
 
 [[package]]
 name = "turso-sql"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "chrono",
  "serde_json",

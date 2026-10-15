@@ -22,9 +22,9 @@ model method accepts `&txn` where it accepted `&db`:
 
 ```rust
 let txn = db.begin().await?;
-post::ActiveModel { /* ... */ }.insert(&txn).await?;
-post::Entity::update_many()
-    .col(post::Column::Views, 0)
+thread_record::ActiveModel { /* ... */ }.insert(&txn).await?;
+thread::Entity::update_many()
+    .col(thread::Column::Status, thread::Status::Completed)
     .exec(&txn)
     .await?;
 txn.commit().await?;
@@ -65,10 +65,10 @@ savepoint and leaves the outer transaction open, still uncommitted:
 
 ```rust
 let txn = db.begin().await?;
-tag::ActiveModel { /* ... */ }.insert(&txn).await?;     // kept
+tool::ActiveModel { /* ... */ }.insert(&txn).await?;    // kept
 {
     let sp = txn.begin().await?;                         // SAVEPOINT sp1
-    tag::ActiveModel { /* ... */ }.insert(&sp).await?;   // undone below
+    tool::ActiveModel { /* ... */ }.insert(&sp).await?;  // undone below
     sp.rollback().await?;                                // ROLLBACK TO sp1
 }
 txn.commit().await?;                                     // commits the first insert

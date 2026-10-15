@@ -23,7 +23,7 @@ methods executes it:
 
 The builder knows the entity's `Column` enum, so a filter on a column that
 does not exist is a compile error. Every column reference is rendered
-qualified, as `"cake"."price"`, which is what keeps a query unambiguous
+qualified, as `"llm_model"."input_price"`, which is what keeps a query unambiguous
 once it joins another table that has a column of the same name.
 
 ## Finding rows
@@ -35,13 +35,13 @@ once it joins another table that has a column of the same name.
 `find_by_id` is the shortcut for a lookup by primary key; it takes a
 value, or a tuple for a composite key. `filter` takes anything that
 converts into a condition: a single comparison such as
-`Column::Name.contains("chocolate")`, which renders
-`"cake"."name" LIKE '%chocolate%'`, or a `Condition` that groups several.
+`Column::Name.contains("mini")`, which renders
+`"llm_model"."name" LIKE '%mini%'`, or a `Condition` that groups several.
 
 Several `filter` calls are combined with `AND`. To build an `OR`, start
 from `Condition::any()` and `add` each branch; `Condition::all()` is the
 explicit `AND` form, and the two nest freely. The example above finds the
-cakes that are gluten free *or* cost more than ten.
+models that can call tools *or* cost more than two per million tokens.
 
 ### The operators
 
@@ -110,7 +110,7 @@ row seen and asks for the rows after it, which is an index seek that
 stays stable under concurrent writes.
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:cursor"
+--8<-- "examples/basic/src/query.rs:cursor"
 ```
 
 `cursor_by([columns])` names the key, most significant column first, so
@@ -146,7 +146,7 @@ ingredients.
 Three other shapes avoid the struct altogether:
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:projections"
+--8<-- "examples/basic/src/query.rs:projections"
 ```
 
 | Call | You get |
@@ -189,7 +189,7 @@ Writing from a request body goes through `DeriveIntoActiveModel` or
 [entities page](entities.md#from-a-request-to-an-active-model).
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:requests"
+--8<-- "examples/basic/src/mutation.rs:requests"
 ```
 
 ## Handling errors
@@ -214,7 +214,7 @@ Three predicates on `DbErr` cover what a request handler usually needs,
 and avoid digging into the driver error:
 
 ```rust
-match post.insert(&db).await {
+match thread.insert(&db).await {
     Ok(model) => /* 201 Created */,
     Err(e) if e.is_unique_violation() => /* 409 Conflict */,
     Err(e) if e.is_foreign_key_violation() => /* 422 Unprocessable */,
@@ -223,8 +223,8 @@ match post.insert(&db).await {
 }
 ```
 
-The [web examples](https://github.com/aartintelligent/turso-orm/tree/main/examples) map them to HTTP statuses in one place, in
-the `api` crate of each.
+A service maps them to HTTP statuses in one place, at the boundary where
+its handlers call the entity API.
 
 ## Beyond the typed builder
 

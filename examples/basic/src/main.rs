@@ -1,8 +1,9 @@
 //! Basic example: the entity API end to end against an in-memory database.
 //!
-//! `main` opens the database, creates the schema from the entities, then
-//! hands the connection to the mutation walkthrough (which seeds the data)
-//! and to the query walkthrough. Each step prints what it reads back.
+//! `main` opens the database, creates the schema from the shared entities,
+//! then hands the connection to the mutation walkthrough (which seeds the
+//! catalog and the agents), to the thread seed, to the query walkthrough and
+//! to the relations walkthrough. Each step prints what it reads back.
 //!
 //! ```text
 //! cargo run
@@ -10,14 +11,14 @@
 
 #![allow(clippy::print_stdout, reason = "examples are meant to print")]
 
-mod entity;
 mod mutation;
 mod query;
+mod relations;
 
-use entity::{Bakery, Cake, Fruit};
+use entity::prelude::{Agent, LlmModel, LlmProvider, Thread, ThreadRecord, ThreadTool, Tool};
 use turso_orm::prelude::*;
 
-/// Opens the database, builds the schema and runs both walkthroughs.
+/// Opens the database, builds the schema and runs the walkthroughs.
 #[tokio::main]
 async fn main() -> Result<(), DbErr> {
     let db = Database::connect(ConnectOptions::in_memory().foreign_keys(true)).await?;
@@ -26,14 +27,19 @@ async fn main() -> Result<(), DbErr> {
     println!("===== mutations =====\n");
     mutation::all_about_mutation(&db).await?;
 
+    relations::seed(&db).await?;
+
     println!("\n===== queries =====\n");
     query::all_about_query(&db).await?;
+
+    println!("\n===== relations =====\n");
+    relations::all_about_relations(&db).await?;
 
     Ok(())
 }
 
 // --8<-- [start:schema]
-/// Creates the three tables and the index declared on `cake`, in dependency order.
+/// Creates the seven tables and their indexes, in dependency order.
 ///
 /// Foreign keys are derived from the `belongs_to` relations and the DDL is
 /// `STRICT`-compatible, so the generated statements are what a migration
@@ -41,14 +47,23 @@ async fn main() -> Result<(), DbErr> {
 async fn create_schema(db: &Database) -> Result<(), DbErr> {
     let schema = Schema::new();
     for stmt in [
-        schema.create_table_from_entity(Bakery).to_statement(),
-        schema.create_table_from_entity(Cake).to_statement(),
-        schema.create_table_from_entity(Fruit).to_statement(),
+        schema.create_table_from_entity(LlmProvider).to_statement(),
+        schema.create_table_from_entity(LlmModel).to_statement(),
+        schema.create_table_from_entity(Agent).to_statement(),
+        schema.create_table_from_entity(Thread).to_statement(),
+        schema.create_table_from_entity(ThreadRecord).to_statement(),
+        schema.create_table_from_entity(Tool).to_statement(),
+        schema.create_table_from_entity(ThreadTool).to_statement(),
     ] {
         println!("{}", stmt.sql);
         db.execute(stmt).await?;
     }
-    for idx in schema.create_index_from_entity(Cake) {
+    let indexes = schema
+        .create_index_from_entity(LlmModel)
+        .into_iter()
+        .chain(schema.create_index_from_entity(Thread))
+        .chain(schema.create_index_from_entity(ThreadRecord));
+    for idx in indexes {
         let stmt = idx.to_statement();
         println!("{}", stmt.sql);
         db.execute(stmt).await?;

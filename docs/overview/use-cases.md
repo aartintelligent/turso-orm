@@ -14,12 +14,13 @@ user to configure.
 ## Web services with a local database
 
 A small service, an internal tool or a prototype often needs less than a
-database server. The web examples show a JSON API on axum or actix-web
-backed by a Turso file: migrations run at start-up, the pool lives in the
-application state, and the service layer is tested against an in-memory
-database without opening a port.
+database server. With a Turso file behind it, the migrations run at
+start-up, the pool lives in the application state, and the service layer
+is tested against an in-memory database without opening a port. The
+examples share one schema for all of this, an agent runtime, and show the
+entity API on it end to end.
 
-[:octicons-arrow-right-24: The web examples on GitHub](https://github.com/aartintelligent/turso-orm/tree/main/examples)
+[:octicons-arrow-right-24: The examples on GitHub](https://github.com/aartintelligent/turso-orm/tree/main/examples)
 
 ## Turso Cloud, with or without a disk
 

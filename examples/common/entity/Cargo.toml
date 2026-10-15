@@ -1,0 +1,13 @@
+# ------------------------------------------------------------------------------
+# entity — the models of the agent runtime, shared by every example.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "entity"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+publish.workspace      = true
+
+[dependencies]
+turso-orm = { workspace = true }

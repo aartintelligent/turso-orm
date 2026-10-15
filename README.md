@@ -77,8 +77,8 @@ What that buys you, in practice:
 - **Desktop and command-line tools** that keep state in a file next to the
   binary, with the schema's history shipped inside the program.
 - **Web services** backed by a local database, from an internal tool to a
-  prototype that may never need more; the [examples](examples) show one on
-  axum and one on actix-web.
+  prototype that may never need more: the pool lives in the application
+  state and the service layer is tested against an in-memory database.
 - **Edge and cloud**, through Turso Cloud as a synced replica or over HTTP,
   without changing the application code.
 - **AI agents** whose memory, tool calls and embeddings live in one place:

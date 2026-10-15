@@ -107,7 +107,7 @@ crates/turso-orm-driver/     connection pool, transactions, typed rows over the 
 crates/turso-orm-macros/     derive macros (DeriveEntityModel, DeriveRelation, DeriveActiveEnum, ...)
 crates/turso-orm/            entities, active models, queries, relations, chains, loaders, schema
 crates/turso-orm-migration/  migrations (MigratorTrait, SchemaManager)
-examples/                    standalone workspaces: basic, axum_example, actix_example
+examples/                    standalone workspaces: common (the shared entities and migrations) and basic
 benches/                     the Criterion benchmarks, a workspace member that is never published
 docs/                        the documentation site (Zensical), built from zensical.toml
 ```
@@ -121,11 +121,12 @@ own, and each entry carries a comment stating which crate needs it and why
 its feature set is what it is.
 
 The examples are separate workspaces, excluded from the root one so that
-their web frameworks never enter the library's dependency graph. They depend
-on the crates by `path`, which makes them a compile-time check of the public
-API: run `just examples` after changing one. Their `.env` files are
-committed on purpose; they hold a listen address and a database file path,
-never a secret.
+their own dependencies never enter the library's dependency graph. They
+depend on the crates by `path`, which makes them a compile-time check of the
+public API: run `just examples` after changing one. `examples/common` holds
+the entities and the migrations of the schema every example shares, an
+agent runtime; the other examples depend on it by `path` too, and the
+documentation site includes its code block by block.
 
 ## Development rules
 

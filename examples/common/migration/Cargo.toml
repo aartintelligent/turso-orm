@@ -1,0 +1,18 @@
+# ------------------------------------------------------------------------------
+# migration — the schema history of the agent runtime and a tiny CLI to run it.
+# ------------------------------------------------------------------------------
+
+[package]
+name                   = "migration"
+version.workspace      = true
+edition.workspace      = true
+rust-version.workspace = true
+publish.workspace      = true
+
+[dependencies]
+# The seed migration inserts through the entities so that the models stay the
+# single source of truth for the column lists.
+entity              = { path = "../entity" }
+tokio               = { version = "1", features = ["macros", "rt-multi-thread"] }
+turso-orm           = { workspace = true }
+turso-orm-migration = { workspace = true }

@@ -12,22 +12,22 @@
 #![allow(clippy::print_stdout, reason = "examples are meant to print")]
 
 // --8<-- [start:entity]
-/// The `user` entity.
-mod user {
+/// The `agent` entity.
+mod agent {
     use turso_orm::prelude::*;
 
-    /// A row of the `user` table.
+    /// A row of the `agent` table.
     #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
-    #[turso(table_name = "user")]
+    #[turso(table_name = "agent")]
     pub(crate) struct Model {
         #[turso(primary_key)]
         pub id: i32,
         #[turso(unique)]
-        pub email: String,
-        pub name: Option<String>,
+        pub name: String,
+        pub system_prompt: Option<String>,
     }
 
-    /// The relations of `user`; there are none.
+    /// The relations of `agent`; there are none.
     #[derive(Copy, Clone, Debug, DeriveRelation)]
     pub(crate) enum Relation {}
 
@@ -37,13 +37,13 @@ mod user {
 
 use turso_orm::prelude::*;
 
-/// Creates the table, inserts one user and finds it again by a `LIKE` filter.
+/// Creates the table, inserts one agent and finds it again by a `LIKE` filter.
 #[tokio::main]
 async fn main() -> Result<(), DbErr> {
     let db = Database::connect(ConnectOptions::in_memory()).await?;
     db.execute(
         Schema::new()
-            .create_table_from_entity(user::Entity)
+            .create_table_from_entity(agent::Entity)
             .to_statement(),
     )
     .await?;
@@ -51,17 +51,17 @@ async fn main() -> Result<(), DbErr> {
     // --8<-- [start:query]
     // `id` stays `NotSet`, so the database assigns it and `insert` returns
     // the stored row with the generated key.
-    let alice = user::ActiveModel {
-        email: Set("alice@example.com".into()),
-        name: Set(Some("Alice".into())),
+    let planner = agent::ActiveModel {
+        name: Set("planner".into()),
+        system_prompt: Set(Some("You plan, step by step.".into())),
         ..Default::default()
     }
     .insert(&db)
     .await?;
-    println!("inserted {alice:?}");
+    println!("inserted {planner:?}");
 
-    let found = user::Entity::find()
-        .filter(user::Column::Email.contains("example"))
+    let found = agent::Entity::find()
+        .filter(agent::Column::Name.contains("plan"))
         .one(&db)
         .await?;
     println!("found {found:?}");

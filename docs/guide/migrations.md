@@ -38,7 +38,7 @@ called `Migration` and the file name is the single source of truth for
 ordering:
 
 ```rust
---8<-- "examples/axum_example/migration/src/m20240101_000001_create_post_table.rs"
+--8<-- "examples/common/migration/src/m20240101_000002_create_agent_table.rs"
 ```
 
 The naming convention is `m<yyyymmdd>_<seq>_<what>`: a date, a sequence
@@ -70,18 +70,19 @@ migration can also move or seed data, and it benefits from the same
 atomicity. The entity API works on it as on any connection:
 
 ```rust
---8<-- "examples/axum_example/migration/src/m20240101_000002_seed_posts.rs"
+--8<-- "examples/common/migration/src/m20240101_000004_seed_catalog.rs"
 ```
 
-Two details are worth noting. The seed uses `insert_many` through the
-entity, so the column list comes from the model and cannot drift from the
-code. And `down` deletes exactly the rows `up` inserted, filtered by
-title, rather than emptying the table, which may hold user data by then.
+Two details are worth noting. The seed writes through the entities, so
+the column lists come from the models and cannot drift from the code. And
+`down` deletes exactly the providers `up` inserted, by name, and lets the
+cascade remove their models, rather than emptying the tables, which may
+hold user data by then.
 
 !!! warning "A migration and the entity it uses can drift"
     A migration refers to the entity as it is *today*, but the migration
     describes the schema as it was *then*. If a later migration adds a
-    required column to `post`, this seed would start failing on a fresh
+    required column to `llm_model`, this seed would start failing on a fresh
     database. Data migrations through the entity are convenient early in a
     project; for a schema that keeps changing, prefer explicit SQL or a
     copy of the model frozen inside the migration module.
@@ -93,7 +94,7 @@ list is the only thing to implement; `up`, `down`, `status` and the rest
 come from `MigratorTrait`:
 
 ```rust
---8<-- "examples/axum_example/migration/src/lib.rs"
+--8<-- "examples/common/migration/src/lib.rs"
 ```
 
 | Method | Effect |
@@ -133,13 +134,13 @@ issues for a CI step or a status command to show.
 
 ## Running migrations
 
-The migrator is a library: how and when it runs is your decision. The web
-examples call `Migrator::up(&db, None)` at start-up, before the server
-binds its port, which is right for a service that owns its database. They
-also ship a small binary for operating by hand:
+The migrator is a library: how and when it runs is your decision. A
+service that owns its database calls `Migrator::up(&db, None)` at
+start-up, before it accepts requests. The migration crate the examples
+share also ships a small binary for operating by hand:
 
 ```rust
---8<-- "examples/axum_example/migration/src/main.rs"
+--8<-- "examples/common/migration/src/main.rs"
 ```
 
 Running migrations from a dedicated binary rather than at start-up is the

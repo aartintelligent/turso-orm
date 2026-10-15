@@ -90,16 +90,21 @@ Tests run against a real in-memory Turso database; no services needed. Each test
 loaders, composite keys, transactions) and `crates/turso-orm/tests/relational.rs` (many-to-many,
 self-reference, several relations to one entity, `Linked`, enums, partial models, request
 structs, JSON, cursor, projections, `RETURNING` deletes, wide composite keys); each has a
-`setup()` helper that creates the schema from the entities. `crates/turso-orm/examples/relations.rs`
-is the runnable counterpart the site includes snippets from.
+`setup()` helper that creates the schema from the entities. `examples/basic` is the runnable
+counterpart the site includes snippets from.
 
 ## Examples
 
-`examples/*` are standalone Cargo workspaces (excluded from the root one via `exclude`): `basic` is a single console crate with `entity/`, `query.rs` and
-`mutation.rs`; `axum_example` and `actix_example` each hold `entity`, `migration` (with a tiny
-`up`/`down`/`status` CLI binary) and `api` (handlers + `service::{Query, Mutation}` + a
-`tests/crud_tests.rs` against an in-memory database). They depend on the ORM by `path`, so a
-library change must keep them compiling: run `just examples` after touching public API.
+`examples/*` are standalone Cargo workspaces (excluded from the root one via `exclude`), all on one
+schema, an agent runtime. `common` holds `entity` (`llm_provider` → `llm_model` → `agent` → `thread`
+→ `thread_record`, `tool` and the `thread_tool` junction; a thread may be forked from another and
+reviewed by a second agent) and `migration` (four migrations creating and seeding that schema, a tiny
+`up`/`down`/`status` CLI, a test). `basic` is a console crate on `common/entity` with `mutation.rs`,
+`query.rs` and `relations.rs`, one function per block the site includes, run end to end by
+`just examples` and CI. Entity names stay in snake_case (`llm_model`, not `model`: every entity module
+already has a `Model` struct). They depend on the ORM by `path`, so a library change must keep them
+compiling: run `just examples` after touching public API. A new example depends on `common` rather
+than redefining entities.
 
 ## Benchmarks
 

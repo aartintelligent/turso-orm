@@ -1,0 +1,23 @@
+# ------------------------------------------------------------------------------
+# common — the entities and the migrations every example shares.
+#
+# A separate workspace, like each example, with two members: `entity` holds
+# the models of the agent runtime (providers, models, agents, threads,
+# records and tools) and `migration` the schema history that creates them,
+# with a tiny CLI. The examples depend on both by `path`. The `path` entries
+# below point at the in-repository ORM; remove them in your own project.
+# ------------------------------------------------------------------------------
+
+[workspace]
+members  = ["entity", "migration"]
+resolver = "3"
+
+[workspace.package]
+version      = "0.1.0"
+edition      = "2024"
+rust-version = "1.94"
+publish      = false
+
+[workspace.dependencies]
+turso-orm           = { version = "0.1", path = "../../crates/turso-orm" }
+turso-orm-migration = { version = "0.1", path = "../../crates/turso-orm-migration" }

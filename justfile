@@ -105,10 +105,9 @@ docs-build:
 # Run every check CI runs, locally.
 ci: fmt-check clippy test doctest deny examples docs-build
 
-# Run the quickstart and the relations examples.
+# Run the quickstart example of the crate.
 example:
     cargo run -p turso-orm --example quickstart
-    cargo run -p turso-orm --example relations
 
 # Format, lint and test each example workspace, and run the console one.
 # Each example is its own workspace, so the root recipes do not reach it.
