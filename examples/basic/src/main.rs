@@ -10,9 +10,9 @@
 //! DATABASE__MODE=file DATABASE__PATH=agents.db cargo run
 //! ```
 
+use basic::migration::{Migrator, MigratorTrait};
 use basic::settings::Settings;
 use basic::{AppState, db, telemetry};
-use migration::{Migrator, MigratorTrait};
 use tokio::net::TcpListener;
 
 /// Where the server listens. Not a setting: change it here.

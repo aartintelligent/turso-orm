@@ -1,14 +1,16 @@
 # Basic example
 
 A JSON API on [axum](https://github.com/tokio-rs/axum) that exercises the
-entity API end to end on the agent runtime schema of `examples/common`:
-providers and models, agents, threads with their records and the tools they
-invoked. Every feature of the ORM the guide explains has a route here:
+entity API end to end on a small agent runtime: models, agents, threads
+with their records and the tools they invoked. Every feature of the ORM the guide explains has a route here:
 inserts and updates, filters, pagination and keyset cursors, streaming,
 projections, relations in every direction, the many-to-many junction, the
 self-reference, chains across tables, transactions and cascades.
 
-The crate has four layers, one directory each:
+The schema and its history live in the crate: `entity/` holds one module
+per table, six in all, and `migration/` one migration per table plus the
+seed, with the `migrate` binary to run them by hand. The API is four
+layers, one directory each:
 
 | Layer | Knows about | Holds |
 |---|---|---|
@@ -30,8 +32,7 @@ cargo run
 
 The migrations run at start-up, then the server listens on
 `127.0.0.1:7407`, one tracing span per request and every SQL statement at
-`debug`. The catalog is seeded by the migrations: two providers, two
-models.
+`debug`. The catalog is seeded by the migrations: two models.
 
 The database is the only thing to configure. The defaults live in
 `src/settings.rs`; `DATABASE__*` environment variables override them, and
@@ -50,6 +51,14 @@ For example, to keep the data in a file:
 
 ```sh
 DATABASE__MODE=file DATABASE__PATH=agents.db cargo run
+```
+
+The server applies the migrations itself. To operate them by hand on that
+file, `migrate` takes `up`, `down`, `status`, `fresh`, `refresh` or
+`reset`:
+
+```sh
+DATABASE__MODE=file DATABASE__PATH=agents.db cargo run --bin migrate -- status
 ```
 
 ## Try it
@@ -103,4 +112,5 @@ cargo test
 ```
 
 `tests/api.rs` builds the router on an in-memory database and drives it
-with `oneshot` requests, without opening a port. It is what CI runs.
+with `oneshot` requests, without opening a port; `tests/migrations.rs`
+applies and reverts the migrations. They are what CI runs.

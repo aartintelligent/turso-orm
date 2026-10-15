@@ -1,4 +1,4 @@
-//! Creates the `llm_provider` table.
+//! Creates the `llm_model` table.
 
 use turso_orm_migration::prelude::*;
 
@@ -12,18 +12,18 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table("llm_provider")
+                    .table("llm_model")
                     .if_not_exists()
                     .col(ColumnDef::integer("id").primary_key().auto_increment())
-                    .col(ColumnDef::text("name").not_null().unique_key())
-                    .col(ColumnDef::text("base_url").not_null()),
+                    .col(ColumnDef::text("name").not_null())
+                    .col(ColumnDef::real("input_price").not_null())
+                    .col(ColumnDef::boolean("supports_tools").not_null())
+                    .col(ColumnDef::json("capabilities").null()),
             )
             .await
     }
 
     async fn down(&self, manager: &SchemaManager<'_>) -> Result<(), DbErr> {
-        manager
-            .drop_table(Table::drop().table("llm_provider"))
-            .await
+        manager.drop_table(Table::drop().table("llm_model")).await
     }
 }

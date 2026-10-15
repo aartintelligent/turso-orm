@@ -1,8 +1,8 @@
 //! The threads: opening, paging by key, appending records, forking, tools.
 
-use entity::prelude::{Thread, ThreadRecord, Tool};
-use entity::thread_record::Role;
-use entity::{thread, thread_record, thread_tool, tool};
+use crate::entity::thread_record::Role;
+use crate::entity::{Thread, ThreadRecord, Tool};
+use crate::entity::{thread, thread_record, thread_tool, tool};
 use turso_orm::prelude::*;
 
 use crate::dto::thread::{

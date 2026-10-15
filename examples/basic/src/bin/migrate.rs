@@ -1,22 +1,23 @@
 //! A minimal migration CLI: `up`, `down`, `status`, `fresh`, `refresh`, `reset`.
 //!
-//! The database path comes from `DATABASE_URL` in the environment; by
-//! default it is `agent_runtime.db` in the working directory.
+//! The database is the one the `DATABASE__*` settings describe, like the
+//! server's; the `file` mode is the one that makes sense here.
 //!
 //! ```text
-//! cargo run -p migration -- status
+//! DATABASE__MODE=file cargo run --bin migrate -- status
 //! ```
 
 #![allow(clippy::print_stdout, reason = "a CLI reports on stdout")]
 
-use migration::{Migrator, MigratorTrait};
-use turso_orm_migration::prelude::*;
+use basic::db;
+use basic::migration::{Migrator, MigratorTrait};
+use basic::settings::Settings;
+use turso_orm::DbErr;
 
 /// Parses the single command argument and runs it against the database.
 #[tokio::main]
-async fn main() -> Result<(), DbErr> {
-    let url = std::env::var("DATABASE_URL").unwrap_or_else(|_| "agent_runtime.db".to_owned());
-    let db = Database::connect(ConnectOptions::new(url).foreign_keys(true)).await?;
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let db = db::connect(&Settings::load()?).await?;
     let command = std::env::args().nth(1).unwrap_or_else(|| "up".to_owned());
     match command.as_str() {
         "up" => Migrator::up(&db, None).await?,
@@ -39,5 +40,5 @@ async fn main() -> Result<(), DbErr> {
     for issue in Migrator::check(&db).await? {
         println!("warning  {issue}");
     }
-    Ok(())
+    Ok::<(), DbErr>(()).map_err(Into::into)
 }

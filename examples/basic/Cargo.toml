@@ -2,12 +2,14 @@
 # basic — a JSON API on axum that exercises the entity API end to end.
 #
 # A separate workspace, so that the example resolves its own dependency graph
-# and the root workspace stays limited to the published crates. The entities
-# and the migrations come from `examples/common`, shared by every example;
-# the `path` dependency on the ORM points at the in-repository crate and
-# would be a plain version in your own project.
+# and the root workspace stays limited to the published crates. The `path`
+# dependencies on the ORM point at the in-repository crates and would be
+# plain versions in your own project.
 #
-# One crate, four layers: `dto` describes what goes in and out as JSON,
+# One crate. `entity` holds the schema, one module per table, and
+# `migration` the migrations that create and seed it, with the `migrate`
+# binary to run them by hand. Then four layers: `dto` describes what goes in
+# and out as JSON,
 # `service` talks to the database through the ORM and knows nothing of HTTP,
 # `handler` binds the two under `router`, and `error` maps a `DbErr` to a
 # status. `settings` reads the database configuration from defaults and
@@ -39,9 +41,6 @@ axum = "0.8"
 # `DATABASE__*` environment variables. No file formats, hence no default
 # features.
 config = { version = "0.15", default-features = false }
-# The agent runtime schema shared by the examples, and its migrations.
-entity    = { path = "../common/entity" }
-migration = { path = "../common/migration" }
 # Row streaming in `service/agents.rs` goes through `TryStreamExt`.
 futures-util = "0.3"
 serde        = { version = "1", features = ["derive"] }
@@ -53,7 +52,8 @@ tracing            = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # `sync` and `serverless` let the settings open a Turso Cloud replica or the
 # HTTP mode, next to the in-memory and file modes.
-turso-orm = { version = "0.1", path = "../../crates/turso-orm", features = ["sync", "serverless"] }
+turso-orm           = { version = "0.1", path = "../../crates/turso-orm", features = ["sync", "serverless"] }
+turso-orm-migration = { version = "0.1", path = "../../crates/turso-orm-migration" }
 
 [dev-dependencies]
 # `tests/api.rs` calls the router with `oneshot` and reads the bodies back.

@@ -1,6 +1,6 @@
 //! Bodies and responses of the agents.
 
-use entity::{agent, llm_model, tool};
+use crate::entity::{agent, llm_model, tool};
 use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
 

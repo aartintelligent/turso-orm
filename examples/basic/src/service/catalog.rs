@@ -1,18 +1,9 @@
-//! The catalog: providers and the models they serve.
+//! The catalog of models.
 
-use entity::prelude::{Agent, LlmModel, LlmProvider};
-use entity::{llm_model, llm_provider};
+use crate::entity::{Agent, LlmModel, llm_model};
 use turso_orm::prelude::*;
 
-use crate::dto::catalog::{CreateModel, CreateProvider, ModelFilter, ModelStats, ModelWithAgents};
-
-/// Inserts a provider from the request body.
-pub async fn create_provider(
-    db: &Database,
-    body: CreateProvider,
-) -> Result<llm_provider::Model, DbErr> {
-    body.into_active_model().insert(db).await
-}
+use crate::dto::catalog::{CreateModel, ModelFilter, ModelStats, ModelWithAgents};
 
 // --8<-- [start:insert_update]
 /// Inserts a model, leaving `id` to the database, and hands back the stored row.
@@ -70,17 +61,6 @@ pub async fn search_models(
 }
 // --8<-- [end:filter]
 
-/// The models of one provider.
-pub async fn models_of_provider(
-    db: &Database,
-    provider_id: i32,
-) -> Result<Option<Vec<llm_model::Model>>, DbErr> {
-    let Some(provider) = LlmProvider::find_by_id(provider_id).one(db).await? else {
-        return Ok(None);
-    };
-    provider.find_related(LlmModel).all(db).await.map(Some)
-}
-
 // --8<-- [start:bulk]
 /// Inserts several models in one statement and returns the stored rows.
 pub async fn create_models(
@@ -102,13 +82,13 @@ pub async fn discount_tool_less_models(db: &Database, input_price: f64) -> Resul
     Ok(result.rows_affected)
 }
 
-/// Deletes the models of a provider and returns them as they were.
-pub async fn remove_provider_models(
+/// Deletes the models priced below `input_price` and returns them as they were.
+pub async fn remove_models_below(
     db: &Database,
-    provider_id: i32,
+    input_price: f64,
 ) -> Result<Vec<llm_model::Model>, DbErr> {
     LlmModel::delete_many()
-        .filter(llm_model::Column::ProviderId.eq(provider_id))
+        .filter(llm_model::Column::InputPrice.lt(input_price))
         .exec_with_returning(db)
         .await
 }
@@ -128,24 +108,18 @@ pub async fn stats(db: &Database) -> Result<Option<ModelStats>, DbErr> {
 // --8<-- [end:project]
 
 // --8<-- [start:loaders]
-/// Every model with its provider and its agents: three queries whatever the
-/// number of models, the loaders answering aligned with their input.
+/// Every model with its agents: two queries whatever the number of models,
+/// the loader answering aligned with its input.
 pub async fn models_with_agents(db: &Database) -> Result<Vec<ModelWithAgents>, DbErr> {
     let models = LlmModel::find()
         .order_by_asc(llm_model::Column::Id)
         .all(db)
         .await?;
-    let providers = models.load_one(LlmProvider, db).await?;
     let agents = models.load_many(Agent, db).await?;
     Ok(models
         .into_iter()
-        .zip(providers)
         .zip(agents)
-        .map(|((model, provider), agents)| ModelWithAgents {
-            model,
-            provider,
-            agents,
-        })
+        .map(|(model, agents)| ModelWithAgents { model, agents })
         .collect())
 }
 // --8<-- [end:loaders]

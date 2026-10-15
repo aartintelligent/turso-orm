@@ -13,7 +13,7 @@ so that `llm_model::Entity`, `llm_model::Column`, `llm_model::ActiveModel`
 and `llm_model::Model` all live side by side under one name:
 
 ```rust
---8<-- "examples/common/entity/src/resource/llm_model.rs"
+--8<-- "examples/basic/src/entity/llm_model.rs"
 ```
 
 What `DeriveEntityModel` produces from that struct:
@@ -108,7 +108,7 @@ a fieldless enum and makes it a column type in every sense: a model
 field, a value in a condition, a default in the DDL.
 
 ```rust
---8<-- "examples/common/entity/src/resource/thread.rs:active_enum"
+--8<-- "examples/basic/src/entity/thread.rs:active_enum"
 ```
 
 | Attribute | Effect |

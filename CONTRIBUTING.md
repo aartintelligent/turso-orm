@@ -107,7 +107,7 @@ crates/turso-orm-driver/     connection pool, transactions, typed rows over the 
 crates/turso-orm-macros/     derive macros (DeriveEntityModel, DeriveRelation, DeriveActiveEnum, ...)
 crates/turso-orm/            entities, active models, queries, relations, chains, loaders, schema
 crates/turso-orm-migration/  migrations (MigratorTrait, SchemaManager)
-examples/                    standalone workspaces: common (the shared entities and migrations) and basic
+examples/                    standalone workspaces: basic, a JSON API on axum with its own entities and migrations
 benches/                     the Criterion benchmarks, a workspace member that is never published
 docs/                        the documentation site (Zensical), built from zensical.toml
 ```
@@ -123,18 +123,16 @@ its feature set is what it is.
 The examples are separate workspaces, excluded from the root one so that
 their own dependencies never enter the library's dependency graph. They
 depend on the crates by `path`, which makes them a compile-time check of the
-public API: run `just examples` after changing one. `examples/common` holds
-the entities (`entity/src/resource/`, one module per table) and the
-migrations (`migration/src/resource/`, one migration per table, seeds
-included) of the schema every example shares, an agent runtime; the other
-examples depend on it by `path`. `examples/basic` is a JSON API on axum in
-four layers, `dto`, `service`, `handler` and `router.rs`, with `error.rs`
-mapping `DbErr` to statuses, `settings.rs` reading the database settings
-from `DATABASE__*` environment variables over defaults in code, `db.rs`
-opening the database in the mode they name and `telemetry.rs` setting up
-tracing; the documentation site
-includes its services, DTOs, error mapping, connection and tests block by
-block.
+public API: run `just examples` after changing one. `examples/basic` is a
+JSON API on axum over a small agent runtime: `src/entity/` holds one module
+per table, `src/migration/` one migration per table plus the seed, with the
+`migrate` binary to run them by hand; then four layers, `dto`, `service`,
+`handler` and `router.rs`, with `error.rs` mapping `DbErr` to statuses,
+`settings.rs` reading the database settings from `DATABASE__*` environment
+variables over defaults in code, `db.rs` opening the database in the mode
+they name and `telemetry.rs` setting up tracing. The documentation site
+includes its entities, migrations, services, DTOs, error mapping, connection
+and tests block by block.
 
 ## Development rules
 

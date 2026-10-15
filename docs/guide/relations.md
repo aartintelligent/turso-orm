@@ -11,30 +11,25 @@ the same table, and paths that cross several tables.
 
 ## The example schema
 
-The examples share one schema, an agent runtime. Its first three tables
-carry the one-to-many shapes this page starts with: a provider serves
-models; a model is configured on agents; an agent may run on no model at
-all. The threads, the records and the tools come in further down, for
-the junction, the self-reference and the chains.
+The basic example is a small agent runtime. Its first two tables carry
+the one-to-many shape this page starts with: a model is configured on
+agents; an agent may run on no model at all. The threads, the records and
+the tools come in further down, for the junction, the self-reference and
+the chains.
 
 ```mermaid
 erDiagram
-    llm_provider ||--o{ llm_model : "has many"
     llm_model ||--o{ agent : "has many"
-    llm_provider {
-        int id PK
-        text name UK
-        text base_url
-    }
     llm_model {
         int id PK
         text name
         real input_price
-        int provider_id FK
+        bool supports_tools
     }
     agent {
         int id PK
         text name UK
+        text system_prompt "nullable"
         int model_id FK "nullable"
     }
 ```
@@ -49,7 +44,7 @@ The owning side uses `belongs_to` and names its own column (`from`) and
 the column it references (`to`):
 
 ```rust
---8<-- "examples/common/entity/src/resource/agent.rs"
+--8<-- "examples/basic/src/entity/agent.rs"
 ```
 
 The reverse side uses `has_many` or `has_one` and gives only the target
@@ -57,7 +52,7 @@ entity. The macro finds the matching `belongs_to` on that entity and
 reuses its columns, so the join condition is written once:
 
 ```rust
---8<-- "examples/common/entity/src/resource/llm_provider.rs"
+--8<-- "examples/basic/src/entity/llm_model.rs"
 ```
 
 | Attribute | On which side | Effect |
@@ -72,15 +67,16 @@ reuses its columns, so the join condition is written once:
 
 `agent.model_id` is an `Option<i32>`, so the column is nullable and
 `ON DELETE SET NULL` is a sensible action: deleting a model detaches its
-agents. `llm_model.provider_id` is a plain `i32` with `ON DELETE CASCADE`:
-deleting a provider deletes its models. The engine enforces both because the
+agents. `thread.agent_id`, further down, is a plain `i32` with
+`ON DELETE CASCADE`: deleting an agent deletes its threads. The engine
+enforces both because the
 pool opens every connection with `PRAGMA foreign_keys = ON`, which
 `ConnectOptions::foreign_keys` controls.
 
 !!! note "Index your foreign keys"
     SQLite does not index foreign-key columns automatically, and every
     `find_related`, loader and cascade filters on them. Mark them
-    `#[turso(indexed)]`, as `llm_model.provider_id` is, so that
+    `#[turso(indexed)]`, as `thread.agent_id` is, so that
     `Schema::create_index_from_entity` emits the index.
 
 ## Reading across a relation
@@ -95,8 +91,8 @@ shape the result takes. Pick by what you have in hand.
 ### From one model: `find_related`
 
 `model.find_related(Other)` returns a `Select<Other>` already filtered on
-the key of `model`. It works in both directions: a provider finds its
-models, an agent finds its model. Being a `Select`, it accepts every builder
+the key of `model`. It works in both directions: a model finds its
+agents, an agent finds its model. Being a `Select`, it accepts every builder
 method, so ordering or a further filter can be added before `all` or
 `one`. It costs one query per call, which is fine for a single model and
 is exactly the N+1 pattern to avoid inside a loop.
@@ -145,8 +141,9 @@ result back aligned with your input:
 per input model, in the same order; `load_one(Other, db)` returns
 `Vec<Option<Other::Model>>`. Zipping the input with the result pairs them
 back without a lookup table. This is the tool for list endpoints: one
-query for the page of models, one for all their providers, one for all
-their agents, whatever the page size.
+query for the page, one for everything related to it, whatever the page
+size. The paged list of agents on the [queries page](queries.md#pagination-and-streaming)
+loads the model of each agent the same way, with `load_one`.
 
 | Call | Queries | You have | You get |
 |---|---|---|---|
@@ -164,7 +161,7 @@ ordinary entity with a composite key and a `belongs_to` towards each
 side:
 
 ```rust
---8<-- "examples/common/entity/src/resource/thread_tool.rs"
+--8<-- "examples/basic/src/entity/thread_tool.rs"
 ```
 
 Each side then declares a `has_many` to the other with `via` naming the
@@ -172,7 +169,7 @@ junction. Nothing else is written: the two hops are assembled from the
 junction's own `belongs_to` relations.
 
 ```rust
---8<-- "examples/common/entity/src/resource/thread.rs:relations"
+--8<-- "examples/basic/src/entity/thread.rs:relations"
 ```
 
 Every way of reading across a relation follows the two hops on its own.
@@ -223,7 +220,7 @@ thread therefore yields `(fork, Some(parent))` pairs out of the box.
 ## Paths across several tables: `Linked`
 
 Some questions cross more than one relation: the tools every thread of
-an agent invoked, the provider behind each agent of a team. A `Linked`
+an agent invoked, the model behind each thread of a team. A `Linked`
 chain names the hops once, as a unit struct, and every hop is a relation
 definition you already have:
 

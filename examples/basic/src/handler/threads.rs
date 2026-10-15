@@ -1,10 +1,10 @@
 //! Routes of the threads, their records and their tools.
 
+use crate::entity::Thread;
+use crate::entity::{thread, thread_record, tool};
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use entity::prelude::Thread;
-use entity::{thread, thread_record, tool};
 use turso_orm::prelude::*;
 
 use crate::dto::page::After;

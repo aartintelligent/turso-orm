@@ -1,6 +1,8 @@
-//! A JSON API on axum over the agent runtime schema, in four layers.
+//! A JSON API on axum over a small agent runtime schema, in four layers.
 //!
-//! `dto` describes what goes in and out as JSON, `service` talks to the
+//! `entity` holds the schema, one module per table, and `migration` the
+//! migrations that create and seed it. `dto` describes what goes in and out
+//! as JSON, `service` talks to the
 //! database through the ORM and knows nothing of HTTP, `handler` binds the
 //! two, `router` lists every route, and `error` maps a `DbErr` to a status.
 //! Around them, `settings` reads the database configuration, `db` opens the
@@ -11,8 +13,10 @@
 
 pub mod db;
 pub mod dto;
+pub mod entity;
 pub mod error;
 pub mod handler;
+pub mod migration;
 pub mod router;
 pub mod service;
 pub mod settings;

@@ -4,7 +4,7 @@
 //! `State<Database>` through `FromRef`, or `State<AppState>` for the rest.
 
 use axum::Router;
-use axum::routing::{get, patch, post, put};
+use axum::routing::{delete, get, patch, post, put};
 
 use crate::handler::{agents, catalog, threads};
 use crate::state::AppState;
@@ -13,16 +13,12 @@ use crate::state::AppState;
 pub fn build(state: AppState) -> Router {
     Router::new()
         // The catalog.
-        .route("/providers", post(catalog::create_provider))
-        .route(
-            "/providers/{id}/models",
-            get(catalog::models_of_provider).delete(catalog::remove_provider_models),
-        )
         .route(
             "/models",
             get(catalog::search_models).post(catalog::create_model),
         )
         .route("/models/batch", post(catalog::create_models))
+        .route("/models/below", delete(catalog::remove_below))
         .route("/models/discount", patch(catalog::discount))
         .route("/models/stats", get(catalog::stats))
         .route("/models/with-agents", get(catalog::with_agents))

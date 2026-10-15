@@ -1,43 +1,23 @@
-//! Routes of the catalog: providers and models.
+//! Routes of the catalog of models.
 
+use crate::entity::llm_model;
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use entity::{llm_model, llm_provider};
 use turso_orm::Database;
 
-use crate::dto::catalog::{
-    CreateModel, CreateProvider, ModelFilter, ModelStats, ModelWithAgents, Price,
-};
+use crate::dto::catalog::{CreateModel, ModelFilter, ModelStats, ModelWithAgents, Price};
 use crate::error::ApiError;
 use crate::service::catalog;
 
-/// `POST /providers`.
-pub async fn create_provider(
+/// `DELETE /models/below`.
+pub async fn remove_below(
     State(db): State<Database>,
-    Json(body): Json<CreateProvider>,
-) -> Result<(StatusCode, Json<llm_provider::Model>), ApiError> {
-    let created = catalog::create_provider(&db, body).await?;
-    Ok((StatusCode::CREATED, Json(created)))
-}
-
-/// `GET /providers/{id}/models`.
-pub async fn models_of_provider(
-    State(db): State<Database>,
-    Path(id): Path<i32>,
+    Json(body): Json<Price>,
 ) -> Result<Json<Vec<llm_model::Model>>, ApiError> {
-    catalog::models_of_provider(&db, id)
-        .await?
-        .map(Json)
-        .ok_or(ApiError::NotFound("provider"))
-}
-
-/// `DELETE /providers/{id}/models`.
-pub async fn remove_provider_models(
-    State(db): State<Database>,
-    Path(id): Path<i32>,
-) -> Result<Json<Vec<llm_model::Model>>, ApiError> {
-    Ok(Json(catalog::remove_provider_models(&db, id).await?))
+    Ok(Json(
+        catalog::remove_models_below(&db, body.input_price).await?,
+    ))
 }
 
 /// `GET /models`.

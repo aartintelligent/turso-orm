@@ -609,14 +609,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "entity"
-version = "0.1.0"
-dependencies = [
- "serde",
- "turso-orm",
-]
-
-[[package]]
 name = "env_filter"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1550,16 +1542,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "migration"
-version = "0.1.0"
-dependencies = [
- "entity",
- "tokio",
- "turso-orm",
- "turso-orm-migration",
 ]
 
 [[package]]
@@ -2939,10 +2921,8 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "config",
- "entity",
  "futures-util",
  "http-body-util",
- "migration",
  "serde",
  "serde_json",
  "tokio",
@@ -2951,6 +2931,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "turso-orm",
+ "turso-orm-migration",
 ]
 
 [[package]]

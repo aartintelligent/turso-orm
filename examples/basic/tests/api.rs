@@ -1,17 +1,17 @@
 //! Drives the router on an in-memory database with `oneshot` requests, without a port.
 //!
 //! Each test builds its own application over a fresh database migrated by
-//! the shared migrations, so the seeded catalog, two providers and two
-//! models, is there from the start.
+//! the crate's migrations, so the seeded catalog, two models, is there from
+//! the start.
 
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
 use basic::AppState;
+use basic::entity::{Agent, LlmModel, Thread, ThreadRecord, ThreadTool, Tool};
+use basic::migration::{Migrator, MigratorTrait};
 use basic::settings::Settings;
-use entity::prelude::{Agent, LlmModel, LlmProvider, Thread, ThreadRecord, ThreadTool, Tool};
 use http_body_util::BodyExt;
-use migration::{Migrator, MigratorTrait};
 use serde_json::{Value, json};
 use tower::ServiceExt;
 use turso_orm::prelude::*;
@@ -78,27 +78,10 @@ async fn thread(app: &Router, agent_id: i32, title: &str, reviewer: Option<i32>)
     body["id"].as_i64().expect("id") as i32
 }
 
-/// Providers and models: inserts, the unique violation as 409, updates, filters, stats, bulk writes.
+/// Models: inserts, updates, filters, stats and the bulk writes.
 #[tokio::test]
 async fn catalog_round_trip() {
     let (app, _db) = app().await;
-
-    let (status, mistral) = call(
-        &app,
-        "POST",
-        "/providers",
-        Some(json!({ "name": "Mistral", "base_url": "https://api.mistral.ai" })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::CREATED);
-    let (status, _) = call(
-        &app,
-        "POST",
-        "/providers",
-        Some(json!({ "name": "Mistral", "base_url": "https://example.invalid" })),
-    )
-    .await;
-    assert_eq!(status, StatusCode::CONFLICT);
 
     let (status, large) = call(
         &app,
@@ -106,12 +89,14 @@ async fn catalog_round_trip() {
         "/models",
         Some(json!({
             "name": "mistral-large", "input_price": 2.0, "supports_tools": true,
-            "capabilities": { "context_window": 128000 }, "provider_id": mistral["id"]
+            "capabilities": { "context_window": 128000 }
         })),
     )
     .await;
     assert_eq!(status, StatusCode::CREATED);
     assert_eq!(large["capabilities"]["context_window"], 128000);
+    let (_, found) = call(&app, "GET", &format!("/models/{}", large["id"]), None).await;
+    assert_eq!(found["name"], "mistral-large");
 
     let (status, priced) = call(
         &app,
@@ -146,8 +131,8 @@ async fn catalog_round_trip() {
         "POST",
         "/models/batch",
         Some(json!([
-            { "name": "mistral-small", "input_price": 0.2, "supports_tools": false, "provider_id": mistral["id"] },
-            { "name": "codestral", "input_price": 0.3, "supports_tools": true, "provider_id": mistral["id"] }
+            { "name": "mistral-small", "input_price": 0.2, "supports_tools": false },
+            { "name": "codestral", "input_price": 0.3, "supports_tools": true }
         ])),
     )
     .await;
@@ -161,24 +146,16 @@ async fn catalog_round_trip() {
     )
     .await;
     assert_eq!(discounted, 1);
-    let (_, of_mistral) = call(
-        &app,
-        "GET",
-        &format!("/providers/{}/models", mistral["id"]),
-        None,
-    )
-    .await;
-    assert_eq!(of_mistral.as_array().expect("array").len(), 3);
     let (_, removed) = call(
         &app,
         "DELETE",
-        &format!("/providers/{}/models", mistral["id"]),
-        None,
+        "/models/below",
+        Some(json!({ "input_price": 0.35 })),
     )
     .await;
-    assert_eq!(removed.as_array().expect("array").len(), 3);
-    let (status, _) = call(&app, "GET", "/providers/999/models", None).await;
-    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(removed.as_array().expect("array").len(), 2);
+    let (_, stats) = call(&app, "GET", "/models/stats", None).await;
+    assert_eq!(stats["count"], 3);
 }
 
 /// Agents: creation with the constraint errors mapped, paging, streaming, the model relation and `save`.
@@ -204,10 +181,12 @@ async fn agents_pages_and_relations() {
 
     let (_, page) = call(&app, "GET", "/agents?size=2", None).await;
     assert_eq!(page["items"].as_array().expect("array").len(), 2);
+    assert_eq!(page["items"][0]["model"]["name"], "gpt-4.1-mini");
     assert_eq!(page["pages"], 3);
     assert_eq!(page["total"], 5);
     let (_, last) = call(&app, "GET", "/agents?size=2&page=2", None).await;
-    assert_eq!(last["items"][0]["name"], "archivist");
+    assert_eq!(last["items"][0]["agent"]["name"], "archivist");
+    assert!(last["items"][0]["model"].is_null());
     let (_, names) = call(&app, "GET", "/agents/names", None).await;
     assert_eq!(
         names,
@@ -225,7 +204,7 @@ async fn agents_pages_and_relations() {
     assert_eq!(pricey.as_array().expect("array").len(), 1);
     assert_eq!(pricey[0]["agent"]["id"], reviewer);
     let (_, per_model) = call(&app, "GET", "/models/with-agents", None).await;
-    assert_eq!(per_model[0]["provider"]["name"], "OpenAI");
+    assert_eq!(per_model[0]["model"]["name"], "gpt-4.1-mini");
     assert_eq!(per_model[0]["agents"].as_array().expect("array").len(), 2);
 
     let (status, scout) = call(&app, "PUT", "/agents", Some(json!({ "name": "scout" }))).await;
@@ -423,7 +402,7 @@ async fn deleting_an_agent_cascades() {
 // --8<-- [end:cascade]
 
 // --8<-- [start:schema]
-/// Creates the seven tables and their indexes from the entities, in dependency order.
+/// Creates the six tables and their indexes from the entities, in dependency order.
 ///
 /// Foreign keys are derived from the `belongs_to` relations and the DDL is
 /// `STRICT`-compatible, so the generated statements are what a migration
@@ -431,7 +410,6 @@ async fn deleting_an_agent_cascades() {
 async fn create_schema(db: &Database) -> Result<(), DbErr> {
     let schema = Schema::new();
     for stmt in [
-        schema.create_table_from_entity(LlmProvider).to_statement(),
         schema.create_table_from_entity(LlmModel).to_statement(),
         schema.create_table_from_entity(Agent).to_statement(),
         schema.create_table_from_entity(Thread).to_statement(),
@@ -442,9 +420,8 @@ async fn create_schema(db: &Database) -> Result<(), DbErr> {
         db.execute(stmt).await?;
     }
     let indexes = schema
-        .create_index_from_entity(LlmModel)
+        .create_index_from_entity(Thread)
         .into_iter()
-        .chain(schema.create_index_from_entity(Thread))
         .chain(schema.create_index_from_entity(ThreadRecord));
     for idx in indexes {
         db.execute(idx.to_statement()).await?;

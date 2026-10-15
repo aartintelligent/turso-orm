@@ -1,7 +1,7 @@
 //! The agents: creation, listing, the model they run on, the tools they used.
 
-use entity::prelude::{Agent, LlmModel};
-use entity::{agent, llm_model, thread, thread_tool, tool};
+use crate::entity::{Agent, LlmModel};
+use crate::entity::{agent, llm_model, thread, thread_tool, tool};
 use futures_util::TryStreamExt;
 use turso_orm::prelude::*;
 
@@ -35,13 +35,20 @@ pub async fn delete_agent(db: &Database, id: i32) -> Result<u64, DbErr> {
 // --8<-- [end:save_delete]
 
 // --8<-- [start:paginate_stream]
-/// One page of agents with the totals, in id order.
-pub async fn list_agents(db: &Database, page: Page) -> Result<Paged<agent::Model>, DbErr> {
+/// One page of agents with the totals, in id order, each with its model: the
+/// page is one query, the models of the whole page one more.
+pub async fn list_agents(db: &Database, page: Page) -> Result<Paged<AgentWithModel>, DbErr> {
     let paginator = Agent::find()
         .order_by_asc(agent::Column::Id)
         .paginate(db, page.size.max(1));
     let (total, pages) = paginator.num_items_and_pages().await?;
-    let items = paginator.fetch_page(page.page).await?;
+    let agents = paginator.fetch_page(page.page).await?;
+    let models = agents.load_one(LlmModel, db).await?;
+    let items = agents
+        .into_iter()
+        .zip(models)
+        .map(|(agent, model)| AgentWithModel { agent, model })
+        .collect();
     Ok(Paged {
         items,
         page: page.page,

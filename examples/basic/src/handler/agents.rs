@@ -1,9 +1,9 @@
 //! Routes of the agents.
 
+use crate::entity::{agent, tool};
 use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
-use entity::{agent, tool};
 use turso_orm::Database;
 
 use crate::dto::agent::{AgentFilter, AgentWithModel, AgentWithTools, CreateAgent, SaveAgent};
@@ -12,11 +12,11 @@ use crate::error::ApiError;
 use crate::service::agents;
 
 // --8<-- [start:handlers]
-/// `GET /agents?page=&size=`: a page of agents with the totals.
+/// `GET /agents?page=&size=`: a page of agents with their models and the totals.
 pub async fn list(
     State(db): State<Database>,
     Query(page): Query<Page>,
-) -> Result<Json<Paged<agent::Model>>, ApiError> {
+) -> Result<Json<Paged<AgentWithModel>>, ApiError> {
     Ok(Json(agents::list_agents(&db, page).await?))
 }
 

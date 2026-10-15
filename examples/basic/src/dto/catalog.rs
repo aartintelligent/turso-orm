@@ -1,16 +1,8 @@
-//! Bodies and responses of the catalog: providers and models.
+//! Bodies and responses of the catalog of models.
 
-use entity::{agent, llm_model, llm_provider};
+use crate::entity::{agent, llm_model};
 use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
-
-/// The body of `POST /providers`.
-#[derive(Debug, Deserialize, DeriveIntoActiveModel)]
-#[turso(active_model = "llm_provider::ActiveModel")]
-pub struct CreateProvider {
-    pub name: String,
-    pub base_url: String,
-}
 
 /// The body of `POST /models`, one item of `POST /models/batch`.
 #[derive(Debug, Deserialize, DeriveIntoActiveModel)]
@@ -20,10 +12,9 @@ pub struct CreateModel {
     pub input_price: f64,
     pub supports_tools: bool,
     pub capabilities: Option<Json>,
-    pub provider_id: i32,
 }
 
-/// The body of `PUT /models/{id}/price` and of `PATCH /models/discount`.
+/// The body of `PUT /models/{id}/price`, `PATCH /models/discount` and `DELETE /models/below`.
 #[derive(Debug, Deserialize)]
 pub struct Price {
     pub input_price: f64,
@@ -52,10 +43,9 @@ pub struct ModelStats {
 }
 // --8<-- [end:project_struct]
 
-/// A model with the provider serving it and the agents configured on it.
+/// A model with the agents configured on it.
 #[derive(Debug, Serialize)]
 pub struct ModelWithAgents {
     pub model: llm_model::Model,
-    pub provider: Option<llm_provider::Model>,
     pub agents: Vec<agent::Model>,
 }

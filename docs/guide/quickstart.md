@@ -70,6 +70,6 @@ of its schema instead; see [Migrations](migrations.md).
 its generated id. `find` starts a query, `filter` narrows it with the
 generated `Column` enum, `one` runs it. Everything the builder can do is
 on the [queries page](queries.md), and the
-[examples on GitHub](https://github.com/aartintelligent/turso-orm/tree/main/examples)
-show complete programs on one shared schema, an agent runtime: providers,
-models, agents, threads, records and tools.
+[basic example on GitHub](https://github.com/aartintelligent/turso-orm/tree/main/examples/basic)
+is a complete program on the same schema, a JSON API over a small agent
+runtime: models, agents, threads, records and tools.

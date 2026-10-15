@@ -1,8 +1,7 @@
 //! The migrations apply, seed the catalog, and revert, on an in-memory database.
 
-use entity::prelude::{Agent, LlmModel, LlmProvider};
-use entity::{agent, llm_model};
-use migration::{Migrator, MigratorTrait};
+use basic::entity::{Agent, LlmModel, agent, llm_model};
+use basic::migration::{Migrator, MigratorTrait};
 use turso_orm::prelude::*;
 
 /// Applying every migration creates the schema and the seeded catalog; reverting them all
@@ -14,10 +13,9 @@ async fn up_seeds_the_catalog_and_down_reverts() {
         .expect("open");
     Migrator::up(&db, None).await.expect("up");
     let status = Migrator::status(&db).await.expect("status");
-    assert_eq!(status.len(), 9);
+    assert_eq!(status.len(), 7);
     assert!(status.iter().all(|s| s.applied));
 
-    assert_eq!(LlmProvider::find().count(&db).await.expect("count"), 2);
     let models = LlmModel::find()
         .order_by_asc(llm_model::Column::Id)
         .all(&db)
@@ -25,7 +23,7 @@ async fn up_seeds_the_catalog_and_down_reverts() {
         .expect("models");
     assert_eq!(models.len(), 2);
 
-    // The schema accepts the entities the examples write through.
+    // The schema accepts the entities the API writes through.
     let planner = agent::ActiveModel {
         name: Set("planner".to_owned()),
         model_id: Set(Some(models[0].id)),

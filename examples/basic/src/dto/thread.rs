@@ -1,7 +1,7 @@
 //! Bodies and responses of the threads, their records and their tools.
 
-use entity::thread_record::Role;
-use entity::{thread, thread_record, tool};
+use crate::entity::thread_record::Role;
+use crate::entity::{thread, thread_record, tool};
 use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
 
