@@ -234,9 +234,12 @@ engine. `just bench-report` runs every group and writes the page
 `Cargo.lock`, then lists it in the Performance section of `zensical.toml`;
 the same version overwrites its page, a new version adds one, and the pages
 are the history. The `Benchmarks` workflow does the same on a GitHub-hosted
-runner and opens a pull request with the result: start it by hand from the
-Actions tab after a `turso` upgrade. On that runner the absolute times are
-not comparable with a local run, the ORM-to-raw ratios are.
+runner and opens a pull request with the result. It starts on its own when a
+version of turso-orm is published (the `turso-orm-v*` release, one run per
+version although every crate gets a release), so the report states the
+measurements of the released code; start it by hand from the Actions tab
+after a `turso` upgrade between releases. On that runner the absolute times
+are not comparable with a local run, the ORM-to-raw ratios are.
 
 ## Documentation
 
