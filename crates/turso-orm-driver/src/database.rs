@@ -89,6 +89,10 @@ pub(crate) struct Inner {
     /// One permit per pool slot, whether the slot's connection is idle or
     /// not yet opened.
     permits: Arc<Semaphore>,
+    /// Whether a `ReplicaSync` task runs on this database; a second one
+    /// would push and pull the same file against the first.
+    #[cfg(feature = "sync")]
+    sync_task: AtomicBool,
 }
 
 /// A Turso database with a pool of connections.
@@ -233,6 +237,8 @@ impl Database {
                 permits: Arc::new(Semaphore::new(options.max_connections)),
                 idle: Mutex::new(Vec::with_capacity(options.max_connections)),
                 options,
+                #[cfg(feature = "sync")]
+                sync_task: AtomicBool::new(false),
             }),
         };
         // Warm one connection so that misconfiguration fails fast; dropping
@@ -256,6 +262,28 @@ impl Database {
     #[cfg(feature = "sync")]
     fn replica_budget(&self) -> Duration {
         self.inner.options.busy_timeout.unwrap_or_default()
+    }
+
+    /// Whether this database is an embedded replica.
+    #[cfg(feature = "sync")]
+    pub(crate) fn is_replica(&self) -> bool {
+        matches!(self.inner.engine, Engine::Sync(_))
+    }
+
+    /// Marks the database as driven by a `ReplicaSync`; `false` when one
+    /// already is.
+    #[cfg(feature = "sync")]
+    pub(crate) fn claim_sync_task(&self) -> bool {
+        self.inner
+            .sync_task
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
+
+    /// Lets another `ReplicaSync` be spawned once the current one is gone.
+    #[cfg(feature = "sync")]
+    pub(crate) fn release_sync_task(&self) {
+        self.inner.sync_task.store(false, Ordering::Release);
     }
 
     /// Checks that the database answers queries.

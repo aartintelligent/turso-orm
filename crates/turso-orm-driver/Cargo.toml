@@ -44,10 +44,11 @@ workspace = true
 [features]
 default = []
 # Engine features: forwarded to the `turso` client, which has them off by
-# default here so that consumers opt in deliberately.
+# default here so that consumers opt in deliberately. `sync` also needs the
+# tokio runtime handle, since `ReplicaSync` spawns its loop as a task.
 fts      = ["turso/fts"]
 mimalloc = ["turso/mimalloc"]
-sync     = ["turso/sync"]
+sync     = ["turso/sync", "tokio/rt"]
 # Turso Cloud over HTTP, through the `turso_serverless` client: a second
 # engine behind the same pool, transactions and rows.
 serverless = ["dep:turso_serverless"]

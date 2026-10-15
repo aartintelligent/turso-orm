@@ -29,6 +29,12 @@
 //!   whatever the caller asks for.
 //! - `turso::Error` carries only strings for most variants, so
 //!   [`ErrorKind`] is derived by variant and, for MVCC conflicts, by message.
+//! - An embedded replica exchanges data with Turso Cloud only when asked:
+//!   `push`, `pull`, `checkpoint` and `stats` on the pool, or the optional
+//!   `ReplicaSync` task that runs them on a schedule, behind the `sync`
+//!   feature. The replica's engine does not wait for a held write lock, so
+//!   on a replica the pool retries connections, statements and pulls for
+//!   the busy timeout itself.
 //!
 //! # Tracing
 //!
@@ -45,6 +51,9 @@
 //!   one is dropped unfinished.
 //! - `turso_orm_driver::executor`: `debug` for every statement handed to
 //!   the engine, transaction control and pragmas included.
+//! - `turso_orm_driver::sync`: `info` when a `ReplicaSync` starts, stops or
+//!   shuts down; `debug` after each round, with what it did; `warn` when a
+//!   round fails.
 //!
 //! The `Debug` form of the options redacts tokens and keys, so the events
 //! never show a secret.
@@ -73,6 +82,8 @@ mod decode;
 mod error;
 mod executor;
 mod options;
+#[cfg(feature = "sync")]
+mod sync;
 mod transaction;
 
 pub use connection::{ConnectionTrait, StreamTrait, TransactionTrait};
@@ -88,6 +99,9 @@ pub use options::RemoteOptions;
 #[cfg(feature = "sync")]
 pub use options::SyncOptions;
 pub use options::{ConnectOptions, Encryption, Experimental, Source};
+#[cfg(feature = "sync")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
+pub use sync::{Checkpoint, ReplicaSync, SyncPolicy, SyncStatus};
 pub use transaction::{Transaction, TransactionMode};
 
 /// Re-export of the underlying Turso client, so callers can reach engine
