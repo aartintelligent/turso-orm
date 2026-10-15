@@ -90,16 +90,29 @@ Tests run against a real in-memory Turso database; no services needed. Each test
 loaders, composite keys, transactions) and `crates/turso-orm/tests/relational.rs` (many-to-many,
 self-reference, several relations to one entity, `Linked`, enums, partial models, request
 structs, JSON, cursor, projections, `RETURNING` deletes, wide composite keys); each has a
-`setup()` helper that creates the schema from the entities. `crates/turso-orm/examples/relations.rs`
-is the runnable counterpart the site includes snippets from.
+`setup()` helper that creates the schema from the entities. `examples/basic` is the runnable
+counterpart the site includes snippets from.
 
 ## Examples
 
-`examples/*` are standalone Cargo workspaces (excluded from the root one via `exclude`): `basic` is a single console crate with `entity/`, `query.rs` and
-`mutation.rs`; `axum_example` and `actix_example` each hold `entity`, `migration` (with a tiny
-`up`/`down`/`status` CLI binary) and `api` (handlers + `service::{Query, Mutation}` + a
-`tests/crud_tests.rs` against an in-memory database). They depend on the ORM by `path`, so a
-library change must keep them compiling: run `just examples` after touching public API.
+`examples/*` are standalone Cargo workspaces (excluded from the root one via `exclude`). `basic` is a
+JSON API on axum over a small agent runtime, one crate. `src/entity/` holds one module per table,
+six in all: `llm_model` → `agent` → `thread` → `thread_record`, `tool` and the `thread_tool` junction
+(a thread may be forked from another and reviewed by a second agent; the models derive `serde`).
+`src/migration/` holds one migration per table plus the seed and the migrator, `src/bin/migrate.rs`
+the `up`/`down`/`status` CLI. Then four layers: `dto/` (bodies, query parameters, responses, including
+the `DeriveIntoActiveModel`, `FromQueryResult` and `DerivePartialModel` types), `service/` (the ORM
+calls, no HTTP; the site's blocks), `handler/` (one short function per route) and `router.rs`;
+`error.rs` maps `DbErr` to statuses; `settings.rs` is a `config` struct for the database only, defaults
+in code and `DATABASE__*` environment overrides (no file; the listen address and the log filter are
+constants), `db.rs` opens the four modes (`memory`, `file`, `sync`, `remote`, hence the `sync` and
+`serverless` features on its `turso-orm`), `state.rs` is the `AppState` with
+`FromRef<AppState> for Database`, `telemetry.rs` the tracing setup; `tests/api.rs` drives the router
+with `oneshot` in memory, `tests/migrations.rs` applies and reverts the migrations, both are what CI
+runs; `cargo run` serves on 127.0.0.1:7407. Entity names stay in snake_case (`llm_model`, not `model`:
+every entity module already has a `Model` struct). The example depends on the ORM by `path`, so a
+library change must keep it compiling: run `just examples` after touching public API. Keep the schema
+small: an entity exists because a page of the guide needs it.
 
 ## Benchmarks
 

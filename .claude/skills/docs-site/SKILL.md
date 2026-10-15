@@ -36,8 +36,8 @@ docs/assets/turso/             the illustrated Turso logomark from https://turso
 docs/index.md                  front matter only (template: home.html); the landing page has no Markdown body
 docs/overview/                 presentation pages, no code: why, features, use-cases, design, compatibility, roadmap
 docs/performance/              the Performance tab: `explain.md` (hand-written, how to read the tables) and one generated `turso-<version>.md` per engine version, written by `benches/src/bin/report.rs`, which also adds the nav entry under the `# report: versions` comment of zensical.toml; never edit the generated pages or that list by hand
-docs/guide/quickstart.md       quickstart; the only place a code snippet appears outside the technical pages
-docs/guide/*.md                entities, queries (with error handling), relations, transactions, migrations
+docs/guide/quickstart.md       quickstart; includes `crates/turso-orm/examples/quickstart.rs` (the `agent` entity alone) and the connection function of `examples/basic/src/db.rs`
+docs/guide/*.md                entities, queries (with error handling), relations, transactions, migrations; every block comes from `examples/basic` (`src/entity/*.rs`, `src/migration/*.rs`, `src/bin/migrate.rs`, `src/service/*.rs`, `src/dto/*.rs`, `src/error.rs`, `src/handler/agents.rs`, `src/db.rs`, `tests/api.rs`); no Rust block is written inline
 docs/project/                  about, contributing, community, license
 ```
 
@@ -65,7 +65,7 @@ In the page:
 
 ````markdown
 ```rust
---8<-- "examples/basic/src/query.rs:relations"
+--8<-- "examples/basic/src/service/agents.rs:relations"
 ```
 ````
 
@@ -96,6 +96,6 @@ do not reintroduce a light scheme without the maintainer's say.
 
 Same as the rest of the repository: English, full sentences, code in
 backticks. Use `!!! note` / `!!! warning` admonitions for Turso-specific
-behaviour, `=== "axum"` / `=== "actix-web"` tabs when both frameworks are
-shown, and a table for option lists. Mermaid `erDiagram` blocks render
+behaviour, tabs when several variants are shown, and a table for option
+lists. Mermaid `erDiagram` blocks render
 without a plugin.

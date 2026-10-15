@@ -11,28 +11,26 @@ the same table, and paths that cross several tables.
 
 ## The example schema
 
-The basic example uses three tables. A bakery owns cakes; a cake carries
-fruits; a fruit may sit on no cake at all.
+The basic example is a small agent runtime. Its first two tables carry
+the one-to-many shape this page starts with: a model is configured on
+agents; an agent may run on no model at all. The threads, the records and
+the tools come in further down, for the junction, the self-reference and
+the chains.
 
 ```mermaid
 erDiagram
-    bakery ||--o{ cake : "has many"
-    cake ||--o{ fruit : "has many"
-    bakery {
+    llm_model ||--o{ agent : "has many"
+    llm_model {
+        int id PK
+        text name
+        real input_price
+        bool supports_tools
+    }
+    agent {
         int id PK
         text name UK
-        real profit_margin
-    }
-    cake {
-        int id PK
-        text name
-        real price
-        int bakery_id FK
-    }
-    fruit {
-        int id PK
-        text name
-        int cake_id FK "nullable"
+        text system_prompt "nullable"
+        int model_id FK "nullable"
     }
 ```
 
@@ -46,7 +44,7 @@ The owning side uses `belongs_to` and names its own column (`from`) and
 the column it references (`to`):
 
 ```rust
---8<-- "examples/basic/src/entity/fruit.rs"
+--8<-- "examples/basic/src/entity/agent.rs"
 ```
 
 The reverse side uses `has_many` or `has_one` and gives only the target
@@ -54,7 +52,7 @@ entity. The macro finds the matching `belongs_to` on that entity and
 reuses its columns, so the join condition is written once:
 
 ```rust
---8<-- "examples/basic/src/entity/bakery.rs"
+--8<-- "examples/basic/src/entity/llm_model.rs"
 ```
 
 | Attribute | On which side | Effect |
@@ -67,17 +65,18 @@ reuses its columns, so the join condition is written once:
 | `has_one = "path::Entity"` | The referenced table | One-to-one, same inference. |
 | `via = "path::JunctionEntity"` | With `has_many` | Many-to-many through the junction entity, explained [below](#many-to-many-through-a-junction). |
 
-`fruit.cake_id` is an `Option<i32>`, so the column is nullable and
-`ON DELETE SET NULL` is a sensible action: deleting a cake detaches its
-fruits. `cake.bakery_id` is a plain `i32` with `ON DELETE CASCADE`:
-deleting a bakery deletes its cakes. The engine enforces both because the
+`agent.model_id` is an `Option<i32>`, so the column is nullable and
+`ON DELETE SET NULL` is a sensible action: deleting a model detaches its
+agents. `thread.agent_id`, further down, is a plain `i32` with
+`ON DELETE CASCADE`: deleting an agent deletes its threads. The engine
+enforces both because the
 pool opens every connection with `PRAGMA foreign_keys = ON`, which
 `ConnectOptions::foreign_keys` controls.
 
 !!! note "Index your foreign keys"
     SQLite does not index foreign-key columns automatically, and every
     `find_related`, loader and cascade filters on them. Mark them
-    `#[turso(indexed)]`, as `cake.bakery_id` is, so that
+    `#[turso(indexed)]`, as `thread.agent_id` is, so that
     `Schema::create_index_from_entity` emits the index.
 
 ## Reading across a relation
@@ -86,14 +85,14 @@ There are five ways, and they differ in how many queries run and in what
 shape the result takes. Pick by what you have in hand.
 
 ```rust
---8<-- "examples/basic/src/query.rs:relations"
+--8<-- "examples/basic/src/service/agents.rs:relations"
 ```
 
 ### From one model: `find_related`
 
 `model.find_related(Other)` returns a `Select<Other>` already filtered on
-the key of `model`. It works in both directions: a bakery finds its
-cakes, a fruit finds its cake. Being a `Select`, it accepts every builder
+the key of `model`. It works in both directions: a model finds its
+agents, an agent finds its model. Being a `Select`, it accepts every builder
 method, so ordering or a further filter can be added before `all` or
 `one`. It costs one query per call, which is fine for a single model and
 is exactly the N+1 pattern to avoid inside a loop.
@@ -105,7 +104,7 @@ is exactly the N+1 pattern to avoid inside a loop.
 `(Model, Option<Other::Model>)`. Under the hood the two column lists are
 aliased `A_<col>` and `B_<col>` so that identically named columns do not
 collide, and a right side made only of `NULL`s becomes `None`, which is
-how a fruit without a cake comes back. One query, pairs in return.
+how an agent without a model comes back. One query, pairs in return.
 `order_by_related` orders by a column of the other side.
 
 ### One entry per model: `find_with_related`
@@ -122,9 +121,9 @@ joined rows rather than models; use the loaders for a paged list.
 
 `inner_join(Other)` and `left_join(Other)` add the join without changing
 the selected columns. The result is still `Select<Entity>`, but filters
-can now mention the other entity's columns, as in "fruits whose cake costs
-more than nine". Because every column is rendered qualified, `fruit.id`
-and `cake.id` never clash. `join(kind, &Relation::X.def())` does the same
+can now mention the other entity's columns, as in "agents whose model costs
+more than one per million tokens". Because every column is rendered
+qualified, `agent.id` and `llm_model.id` never clash. `join(kind, &Relation::X.def())` does the same
 for a relation that `Related` does not name, and `join_as` lets you pick
 the alias of the joined table.
 
@@ -135,15 +134,16 @@ loaders fetch everything in one `WHERE key IN (...)` query and hand the
 result back aligned with your input:
 
 ```rust
---8<-- "examples/basic/src/query.rs:loaders"
+--8<-- "examples/basic/src/service/catalog.rs:loaders"
 ```
 
 `load_many(Other, db)` returns `Vec<Vec<Other::Model>>`, one inner vector
 per input model, in the same order; `load_one(Other, db)` returns
 `Vec<Option<Other::Model>>`. Zipping the input with the result pairs them
 back without a lookup table. This is the tool for list endpoints: one
-query for the page of cakes, one for all their fruits, whatever the page
-size.
+query for the page, one for everything related to it, whatever the page
+size. The paged list of agents on the [queries page](queries.md#pagination-and-streaming)
+loads the model of each agent the same way, with `load_one`.
 
 | Call | Queries | You have | You get |
 |---|---|---|---|
@@ -161,7 +161,7 @@ ordinary entity with a composite key and a `belongs_to` towards each
 side:
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:junction"
+--8<-- "examples/basic/src/entity/thread_tool.rs"
 ```
 
 Each side then declares a `has_many` to the other with `via` naming the
@@ -169,7 +169,7 @@ junction. Nothing else is written: the two hops are assembled from the
 junction's own `belongs_to` relations.
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:relations"
+--8<-- "examples/basic/src/entity/thread.rs:relations"
 ```
 
 Every way of reading across a relation follows the two hops on its own.
@@ -182,7 +182,7 @@ loader under a name that states the intent, and fails on a relation
 without a junction.
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:many_to_many"
+--8<-- "examples/basic/src/service/threads.rs:many_to_many"
 ```
 
 The `via` relation generates no foreign key of its own: the junction's
@@ -191,8 +191,9 @@ The `via` relation generates no foreign key of its own: the junction's
 
 ## A table that refers to itself, and two relations to one table
 
-A reply points at the post it answers; a post has an author and may have
-an editor, both in `author`. Both shapes are declared like any other
+A forked thread points at the thread it came from; a thread has an owning
+agent and may have a reviewer, both in `agent`. Both shapes are declared
+like any other
 relation, and both run into the same rule: Rust allows one
 `Related<Target>` impl per entity, so the **first variant naming a target
 is the one `find_related`, the joins and the loaders use**. The other
@@ -207,24 +208,24 @@ variants keep their definition, reachable through `Relation::X.def()`:
   under an alias that filters can name with `Expr::col(("alias", "column"))`.
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:self_reference"
+--8<-- "examples/basic/src/service/threads.rs:self_reference"
 ```
 
 When a join brings the base table in a second time, as a self-join does,
 the second occurrence is aliased `table_1` automatically and the `ON`
 condition is rendered against that alias, so the statement stays
-unambiguous without any help. `find_also_related(post::Entity)` on a
-post therefore yields `(reply, Some(parent))` pairs out of the box.
+unambiguous without any help. `find_also_related(thread::Entity)` on a
+thread therefore yields `(fork, Some(parent))` pairs out of the box.
 
 ## Paths across several tables: `Linked`
 
-Some questions cross more than one relation: the tags of every post an
-author wrote, the bakeries whose cakes carry a given fruit. A `Linked`
+Some questions cross more than one relation: the tools every thread of
+an agent invoked, the model behind each thread of a team. A `Linked`
 chain names the hops once, as a unit struct, and every hop is a relation
 definition you already have:
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:linked"
+--8<-- "examples/basic/src/service/agents.rs:linked"
 ```
 
 `model.find_linked(Chain)` returns a `Select` of the entity at the end of
@@ -235,18 +236,24 @@ the first and the last tables are selected, the ones in between serve the
 join. A table the chain visits twice is aliased as in a self-join.
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:find_linked"
+--8<-- "examples/basic/src/service/agents.rs:find_linked"
 ```
 
 The same two entities can be linked by several chains, each a struct of
-its own, which is how "posts an author edited" and "posts an author
-wrote" stay distinct paths rather than one ambiguous relation.
+its own, which is how "threads an agent reviewed" and "threads an agent
+owns" stay distinct paths rather than one ambiguous relation.
 
 ## Cascades and deletion
 
 Referential actions are run by the engine, not by the ORM, which means
-they also apply to writes made outside turso-orm. The basic example ends
-by deleting a bakery and counting the cakes: zero, because the
-constraint cascaded. If you need application logic at that point, a
-`before_delete` hook on the active model is the place; see
-[entities](entities.md#hooks).
+they also apply to writes made outside turso-orm. The basic example's
+test suite deletes an agent through the API: its threads go with it, and
+so do their records and their junction rows, in one cascade the engine
+runs on its own.
+
+```rust
+--8<-- "examples/basic/tests/api.rs:cascade"
+```
+
+If you need application logic at that point, a `before_delete` hook on
+the active model is the place; see [entities](entities.md#hooks).

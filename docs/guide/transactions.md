@@ -21,17 +21,13 @@ until `commit` or `rollback`. The `Transaction` implements the same
 model method accepts `&txn` where it accepted `&db`:
 
 ```rust
-let txn = db.begin().await?;
-post::ActiveModel { /* ... */ }.insert(&txn).await?;
-post::Entity::update_many()
-    .col(post::Column::Views, 0)
-    .exec(&txn)
-    .await?;
-txn.commit().await?;
+--8<-- "examples/basic/src/service/threads.rs:begin_commit"
 ```
 
 Until `commit`, nothing written through `txn` is visible to statements
-that go through `db`, because those run on other connections.
+that go through `db`, because those run on other connections. A `txn`
+that goes out of scope before `commit`, as on the early `return` above,
+is rolled back; see [below](#what-happens-on-drop).
 
 ## Modes
 
@@ -64,19 +60,14 @@ statements made since the savepoint; committing it releases the
 savepoint and leaves the outer transaction open, still uncommitted:
 
 ```rust
-let txn = db.begin().await?;
-tag::ActiveModel { /* ... */ }.insert(&txn).await?;     // kept
-{
-    let sp = txn.begin().await?;                         // SAVEPOINT sp1
-    tag::ActiveModel { /* ... */ }.insert(&sp).await?;   // undone below
-    sp.rollback().await?;                                // ROLLBACK TO sp1
-}
-txn.commit().await?;                                     // commits the first insert
+--8<-- "examples/basic/src/service/threads.rs:savepoint"
 ```
 
-This is how a service can attempt an optional step inside a larger unit
-of work and discard just that step on failure. Savepoints nest to any
-depth; `Transaction::depth()` tells how deep a handle is.
+This is how a service attempts an optional step inside a larger unit of
+work and discards just that step on failure: here the insert of a tool
+that turns out to exist is undone by the savepoint's `rollback`, and the
+thread inserted before it stays. Savepoints nest to any depth;
+`Transaction::depth()` tells how deep a handle is.
 
 The engine keeps a single stack of savepoints, so only the innermost open
 transaction may act. While `sp` is open, running a statement through
@@ -93,15 +84,16 @@ commit if everything succeeded, roll back otherwise. `db.transaction`
 does that script for you:
 
 ```rust
---8<-- "examples/basic/src/mutation.rs:bulk_transaction"
+--8<-- "examples/basic/src/service/threads.rs:transaction"
 ```
 
 The closure receives `&Transaction` and returns a pinned, boxed future,
 hence the `Box::pin(async move { ... })` wrapper. If the future resolves
 to `Ok(value)`, the transaction is committed and `value` is returned; if
 it resolves to `Err(e)`, the transaction is rolled back and `e` is
-returned. The example above returns an error on purpose to show that the
-insert made inside the closure is gone afterwards.
+returned. The example above reads the next sequence number and inserts the
+records under it in one unit: a concurrent append cannot slip between the
+two, and a failed insert leaves the thread exactly as it was.
 
 The error type is yours to choose, as long as it can be built from the
 driver's error with `From`; `DbErr` qualifies, and so does an application

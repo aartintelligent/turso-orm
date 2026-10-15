@@ -85,7 +85,7 @@ single required status check. The `changes` job sizes each run:
 | Supply chain | `just deny` | Advisories, licences, bans and sources (`deny.toml`) |
 | Features | `just hack` | Every feature pair compiles on its own, except the engine pass-through features `fts`, `mimalloc` and `sync`, which hold no code of ours and are compiled together by the test and docs jobs |
 | MSRV | `just msrv` | The workspace compiles on `rust-version` |
-| Examples | `just examples` | Each example workspace is formatted, linted and tested; `basic` runs |
+| Examples | `just examples` | Each example workspace is formatted, linted and tested; the tests of `basic` drive its API in memory |
 | Site | `just docs-build` | The documentation site builds in strict mode: no broken link, no missing snippet |
 | Spelling | `typos` | Sources and docs (`typos.toml`) |
 | API | CI only | `cargo-semver-checks` flags breaking changes on pull requests |
@@ -107,7 +107,7 @@ crates/turso-orm-driver/     connection pool, transactions, typed rows over the 
 crates/turso-orm-macros/     derive macros (DeriveEntityModel, DeriveRelation, DeriveActiveEnum, ...)
 crates/turso-orm/            entities, active models, queries, relations, chains, loaders, schema
 crates/turso-orm-migration/  migrations (MigratorTrait, SchemaManager)
-examples/                    standalone workspaces: basic, axum_example, actix_example
+examples/                    standalone workspaces: basic, a JSON API on axum with its own entities and migrations
 benches/                     the Criterion benchmarks, a workspace member that is never published
 docs/                        the documentation site (Zensical), built from zensical.toml
 ```
@@ -121,11 +121,18 @@ own, and each entry carries a comment stating which crate needs it and why
 its feature set is what it is.
 
 The examples are separate workspaces, excluded from the root one so that
-their web frameworks never enter the library's dependency graph. They depend
-on the crates by `path`, which makes them a compile-time check of the public
-API: run `just examples` after changing one. Their `.env` files are
-committed on purpose; they hold a listen address and a database file path,
-never a secret.
+their own dependencies never enter the library's dependency graph. They
+depend on the crates by `path`, which makes them a compile-time check of the
+public API: run `just examples` after changing one. `examples/basic` is a
+JSON API on axum over a small agent runtime: `src/entity/` holds one module
+per table, `src/migration/` one migration per table plus the seed, with the
+`migrate` binary to run them by hand; then four layers, `dto`, `service`,
+`handler` and `router.rs`, with `error.rs` mapping `DbErr` to statuses,
+`settings.rs` reading the database settings from `DATABASE__*` environment
+variables over defaults in code, `db.rs` opening the database in the mode
+they name and `telemetry.rs` setting up tracing. The documentation site
+includes its entities, migrations, services, DTOs, error mapping, connection
+and tests block by block.
 
 ## Development rules
 

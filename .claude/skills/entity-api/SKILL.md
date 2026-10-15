@@ -79,6 +79,6 @@ holds `user` / `post` / `category` / `post_category` / `quad` and one test
 per relational feature (junction, self-reference, chains, enums, partial
 models, conversions, JSON, cursor, wide keys). Add to the matching test
 rather than creating a new file; each test opens its own in-memory
-database through `setup()`. `crates/turso-orm/examples/relations.rs` is
-the snippet source for the relations, entities and queries pages: keep
-its `--8<--` markers when editing it.
+database through `setup()`. `examples/basic` (its `src/entity`, `src/migration`,
+`src/service`, `src/dto` and tests) is the snippet source of the guide pages:
+keep its `--8<--` markers when editing it.

@@ -23,25 +23,27 @@ methods executes it:
 
 The builder knows the entity's `Column` enum, so a filter on a column that
 does not exist is a compile error. Every column reference is rendered
-qualified, as `"cake"."price"`, which is what keeps a query unambiguous
+qualified, as `"llm_model"."input_price"`, which is what keeps a query unambiguous
 once it joins another table that has a column of the same name.
 
 ## Finding rows
 
 ```rust
---8<-- "examples/basic/src/query.rs:filter"
+--8<-- "examples/basic/src/service/catalog.rs:filter"
 ```
 
 `find_by_id` is the shortcut for a lookup by primary key; it takes a
 value, or a tuple for a composite key. `filter` takes anything that
 converts into a condition: a single comparison such as
-`Column::Name.contains("chocolate")`, which renders
-`"cake"."name" LIKE '%chocolate%'`, or a `Condition` that groups several.
+`Column::Name.contains("mini")`, which renders
+`"llm_model"."name" LIKE '%mini%'`, or a `Condition` that groups several.
 
 Several `filter` calls are combined with `AND`. To build an `OR`, start
 from `Condition::any()` and `add` each branch; `Condition::all()` is the
-explicit `AND` form, and the two nest freely. The example above finds the
-cakes that are gluten free *or* cost more than ten.
+explicit `AND` form, and the two nest freely. The example above answers
+`GET /models?tools=true&min_price=2`: the models that can call tools *or*
+cost more than two per million tokens; an empty `Condition::any()` adds
+nothing to the statement.
 
 ### The operators
 
@@ -83,7 +85,7 @@ browses; the stream is for processing every row without holding them all
 in memory.
 
 ```rust
---8<-- "examples/basic/src/query.rs:paginate_stream"
+--8<-- "examples/basic/src/service/agents.rs:paginate_stream"
 ```
 
 `paginate(db, page_size)` returns a `Paginator` over the query. Pages are
@@ -110,7 +112,7 @@ row seen and asks for the rows after it, which is an index seek that
 stays stable under concurrent writes.
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:cursor"
+--8<-- "examples/basic/src/service/threads.rs:cursor"
 ```
 
 `cursor_by([columns])` names the key, most significant column first, so
@@ -130,23 +132,25 @@ columns and expressions, and decode into any struct that derives
 `FromQueryResult`:
 
 ```rust
---8<-- "examples/basic/src/query.rs:project_struct"
+--8<-- "examples/basic/src/dto/catalog.rs:project_struct"
 
---8<-- "examples/basic/src/query.rs:project"
+--8<-- "examples/basic/src/service/catalog.rs:project"
 ```
 
 `select_only` clears the entity's column list; `column`, `column_as` and
 `expr_as(expression, alias)` add output columns; `into_model::<T>()` tells
 the builder to decode rows into `T` by column name. The struct's field
 names must match the aliases, or carry `#[turso(column_name = "...")]`
-when they do not, as `most_expensive` does for `max_price`.
+when they do not, as `most_expensive` does for `max_price`. That field
+is an `Option` because `MAX` over an empty table is `NULL`, and only an
+`Option` accepts `NULL`.
 `Func::count_star()` and the aggregate methods on columns are the usual
 ingredients.
 
 Three other shapes avoid the struct altogether:
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:projections"
+--8<-- "examples/basic/src/service/threads.rs:projections"
 ```
 
 | Call | You get |
@@ -162,7 +166,7 @@ Three other shapes avoid the struct altogether:
 time. The entity offers bulk forms:
 
 ```rust
---8<-- "examples/basic/src/mutation.rs:bulk_transaction"
+--8<-- "examples/basic/src/service/catalog.rs:bulk"
 ```
 
 | Call | SQL | Returns |
@@ -189,7 +193,7 @@ Writing from a request body goes through `DeriveIntoActiveModel` or
 [entities page](entities.md#from-a-request-to-an-active-model).
 
 ```rust
---8<-- "crates/turso-orm/examples/relations.rs:requests"
+--8<-- "examples/basic/src/service/threads.rs:requests"
 ```
 
 ## Handling errors
@@ -211,20 +215,20 @@ that a handler matches on structure rather than on an error message.
 | `DbErr::Custom(msg)` | Reserved for application code and hooks. |
 
 Three predicates on `DbErr` cover what a request handler usually needs,
-and avoid digging into the driver error:
+and avoid digging into the driver error. The basic example maps them to
+HTTP statuses in one place, the `IntoResponse` of its error type:
 
 ```rust
-match post.insert(&db).await {
-    Ok(model) => /* 201 Created */,
-    Err(e) if e.is_unique_violation() => /* 409 Conflict */,
-    Err(e) if e.is_foreign_key_violation() => /* 422 Unprocessable */,
-    Err(e) if e.is_busy() => /* the lock did not clear in time: retry */,
-    Err(e) => /* 500 */,
-}
+--8<-- "examples/basic/src/error.rs:status"
 ```
 
-The [web examples](https://github.com/aartintelligent/turso-orm/tree/main/examples) map them to HTTP statuses in one place, in
-the `api` crate of each.
+With `From<DbErr>` on that type, a handler only uses `?` and stays three
+lines long: the extractors of the framework, one service call, one
+response:
+
+```rust
+--8<-- "examples/basic/src/handler/agents.rs:handlers"
+```
 
 ## Beyond the typed builder
 

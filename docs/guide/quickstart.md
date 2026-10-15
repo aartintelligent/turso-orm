@@ -17,61 +17,26 @@ Feature flags are listed on the
 
 ## Open a database
 
-The first decision is where the data lives. Four modes, one line each:
+The first decision is where the data lives. Four modes, one
+`ConnectOptions` each:
 
-=== "In memory"
+| Mode | Options | For |
+|---|---|---|
+| In memory | `ConnectOptions::in_memory()` | Tests, prototypes, short-lived agents: the database lives as long as the pool. |
+| File | `ConnectOptions::new("app.db")` | Desktop tools, services with local state, anything that must survive a restart. |
+| Turso Cloud, replica | `ConnectOptions::sync("replica.db", url).auth_token(token)` | A local file kept in sync with a Turso Cloud database: reads stay local, writes are forwarded. Needs the `sync` feature. |
+| Turso Cloud, HTTP | `ConnectOptions::remote(url).auth_token(token)` | No disk at all, every statement over HTTP: functions at the edge. Needs the `serverless` feature. |
 
-    ```rust
-    use turso_orm::prelude::*;
+The basic example reads the mode from its settings and opens the
+database in one function:
 
-    let db = Database::connect(ConnectOptions::in_memory()).await?;
-    ```
-
-    A database that lives as long as the pool and vanishes with it. For
-    tests, prototypes and short-lived agents.
-
-=== "File"
-
-    ```rust
-    use turso_orm::prelude::*;
-
-    let db = Database::connect(ConnectOptions::new("app.db")).await?;
-    ```
-
-    A file next to the binary, created on first open. For desktop tools,
-    services with local state and anything that must survive a restart.
-
-=== "Turso Cloud, replica"
-
-    ```rust
-    use turso_orm::prelude::*;
-
-    let db = Database::connect(
-        ConnectOptions::sync("replica.db", "libsql://<db>.turso.io").auth_token(token),
-    )
-    .await?;
-    ```
-
-    A local file kept in sync with a Turso Cloud database: reads stay
-    local, writes are forwarded. Needs the `sync` feature.
-
-=== "Turso Cloud, HTTP"
-
-    ```rust
-    use turso_orm::prelude::*;
-
-    let db = Database::connect(
-        ConnectOptions::remote("libsql://<db>.turso.io").auth_token(token),
-    )
-    .await?;
-    ```
-
-    No disk at all: every statement goes over HTTP. For functions at the
-    edge. Needs the `serverless` feature.
+```rust
+--8<-- "examples/basic/src/db.rs:connect"
+```
 
 `Database` is a pool of engine connections, cheap to clone and safe to
 share. Entities, queries, transactions and migrations are the same in all
-four modes; only this line changes. Tokens, encryption and the other
+four modes; only this function changes. Tokens, encryption and the other
 options are on the [compatibility page](../overview/compatibility.md#turso),
 transactions under [Transactions](transactions.md).
 
@@ -89,12 +54,7 @@ types are on the [entities page](entities.md).
 ## Create the table
 
 ```rust
-db.execute(
-    Schema::new()
-        .create_table_from_entity(user::Entity)
-        .to_statement(),
-)
-.await?;
+--8<-- "crates/turso-orm/examples/quickstart.rs:schema"
 ```
 
 Good enough for a first run and for tests. An application keeps a history
@@ -110,5 +70,6 @@ of its schema instead; see [Migrations](migrations.md).
 its generated id. `find` starts a query, `filter` narrows it with the
 generated `Column` enum, `one` runs it. Everything the builder can do is
 on the [queries page](queries.md), and the
-[examples on GitHub](https://github.com/aartintelligent/turso-orm/tree/main/examples)
-show complete programs, including two web APIs.
+[basic example on GitHub](https://github.com/aartintelligent/turso-orm/tree/main/examples/basic)
+is a complete program on the same schema, a JSON API over a small agent
+runtime: models, agents, threads, records and tools.
