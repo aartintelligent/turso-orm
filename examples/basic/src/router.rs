@@ -14,6 +14,8 @@ pub fn build(state: AppState) -> Router {
     Router::new()
         // The replica.
         .route("/sync", post(sync::run))
+        .route("/sync/checkpoint", post(sync::checkpoint))
+        .route("/sync/stats", get(sync::stats))
         // The catalog.
         .route(
             "/models",

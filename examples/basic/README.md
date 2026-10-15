@@ -64,11 +64,16 @@ DATABASE__URL=turso://<database>.turso.io DATABASE__AUTH_TOKEN=<token> cargo run
 ```
 
 The replica pulls once at start-up. After that, `POST /sync` pushes the
-writes made through the API and pulls what other writers committed; the
-other modes answer `409 Conflict` to it:
+writes made through the API and pulls what other writers committed,
+`POST /sync/checkpoint` folds the replica's log into its file, and
+`GET /sync/stats` reports the changes waiting to be pushed, the size of the
+logs and the last exchanges with the cloud. The other modes answer
+`409 Conflict` to the three:
 
 ```sh
 curl -X POST localhost:7407/sync
+curl -X POST localhost:7407/sync/checkpoint
+curl localhost:7407/sync/stats
 ```
 
 The server applies the migrations itself. To operate them by hand on that

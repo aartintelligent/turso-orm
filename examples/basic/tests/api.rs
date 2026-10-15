@@ -445,11 +445,17 @@ async fn schema_from_entities_serves_the_api() {
     assert_eq!(status, StatusCode::OK);
 }
 
-/// `POST /sync` is refused outside the `sync` mode: an in-memory database has no replica.
+/// The `/sync` routes are refused outside the `sync` mode: an in-memory database has no replica.
 #[tokio::test]
 async fn sync_needs_a_replica() {
     let (app, _db) = app().await;
-    let (status, body) = call(&app, "POST", "/sync", None).await;
-    assert_eq!(status, StatusCode::CONFLICT);
-    assert_eq!(body["error"], "the database is not an embedded replica");
+    for (method, path) in [
+        ("POST", "/sync"),
+        ("POST", "/sync/checkpoint"),
+        ("GET", "/sync/stats"),
+    ] {
+        let (status, body) = call(&app, method, path, None).await;
+        assert_eq!(status, StatusCode::CONFLICT, "{method} {path}");
+        assert_eq!(body["error"], "the database is not an embedded replica");
+    }
 }
