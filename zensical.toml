@@ -48,6 +48,13 @@ nav = [
         { "Transactions" = "guide/transactions.md" },
         { "Migrations" = "guide/migrations.md" },
     ] },
+    { "Performance" = [
+        { "Explain" = "performance/explain.md" },
+        # One page per `turso` version, newest first; `benches/src/bin/report.rs`
+        # inserts the next entry below this comment, never edit the list by hand.
+        # report: versions
+        { "Turso 0.8.3" = "performance/turso-0.8.3.md" },
+    ] },
     { "Project" = [
         { "About" = "project/about.md" },
         { "Contributing" = "project/contributing.md" },

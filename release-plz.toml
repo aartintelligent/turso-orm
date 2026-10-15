@@ -81,3 +81,9 @@ version_group     = "turso-orm"
 name               = "turso-orm-migration"
 git_release_latest = false
 version_group      = "turso-orm"
+
+# The benchmarks are a workspace member that is never published, versioned
+# or tagged; release-plz leaves it alone.
+[[package]]
+name    = "benches"
+release = false

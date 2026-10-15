@@ -62,8 +62,13 @@ single required status check. The `changes` job sizes each run:
   `typos.toml`) skips the build jobs: formatting, spelling and the commit lint
   still run, `ci-ok` still reports, and the site build of `docs.yml` guards
   the pages.
-- A pull request that touches code (`crates/`, `examples/`, a manifest, a lint
-  configuration, a workflow) runs everything: the three platforms, the
+- A change under `benches/` alone turns on Clippy only, whose
+  `--all-targets` compiles the benchmarks; nothing else, since a benchmark is
+  never run by CI and says nothing about the crates. The root manifest and
+  the lockfile remain code, so a new dependency of the benchmarks still runs
+  everything.
+- A pull request that touches code (`crates/`, `examples/`, a manifest, a
+  lint configuration, a workflow) runs everything: the three platforms, the
   feature powerset, the examples, the MSRV and the semver check.
 - A push to `main` and a release pull request (`release-plz-*`) run a reduced
   set: Clippy, the Linux tests, the docs, cargo-deny and the coverage. The
@@ -103,6 +108,7 @@ crates/turso-orm-macros/     derive macros (DeriveEntityModel, DeriveRelation, D
 crates/turso-orm/            entities, active models, queries, relations, chains, loaders, schema
 crates/turso-orm-migration/  migrations (MigratorTrait, SchemaManager)
 examples/                    standalone workspaces: basic, axum_example, actix_example
+benches/                     the Criterion benchmarks, a workspace member that is never published
 docs/                        the documentation site (Zensical), built from zensical.toml
 ```
 
@@ -190,6 +196,38 @@ House rules:
   scratch database; CI does not run it.
 - Documentation examples are compile-checked doctests wherever possible.
 - Tests never mutate the process environment.
+
+## Benchmarks
+
+`benches/` is a workspace member (package `benches`) that is never published. It holds the
+Criterion benchmarks, one file per topic (`select.rs`, `insert.rs`,
+`relations.rs`, `render.rs`), `src/lib.rs` with the schema, the data set
+and the two in-memory databases they share, and the `report` binary. Every
+group runs the ORM next to the raw `turso` client doing the same work and
+decoding the same values, so a result reads as the cost of the ORM layer
+over the engine; `render.rs` times the SQL rendering alone, with no engine
+involved.
+
+```sh
+just bench                                        # every group; reports under target/criterion
+cargo bench -p benches --bench select   # one file
+just bench -- --save-baseline main                # on main, then on the branch:
+just bench -- --baseline main
+just bench-report                                 # every group, then the report for the locked turso
+```
+
+The benchmarks are not a CI gate and never run on a pull request: a shared
+runner is too noisy for a number to mean anything between two commits of
+this repository, and the ORM's own changes are judged with `--baseline`
+locally. What is recorded is the cost of the ORM over each version of the
+engine. `just bench-report` runs every group and writes the page
+`docs/performance/turso-<version>.md` for the `turso` version resolved in
+`Cargo.lock`, then lists it in the Performance section of `zensical.toml`;
+the same version overwrites its page, a new version adds one, and the pages
+are the history. The `Benchmarks` workflow does the same on a GitHub-hosted
+runner and opens a pull request with the result: start it by hand from the
+Actions tab after a `turso` upgrade. On that runner the absolute times are
+not comparable with a local run, the ORM-to-raw ratios are.
 
 ## Documentation
 

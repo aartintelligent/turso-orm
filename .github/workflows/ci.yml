@@ -33,7 +33,12 @@ jobs:
   # Decides how much of the pipeline a run needs. `code` is false for a change
   # that touches only documentation (the site, the READMEs, the Markdown
   # guides): the build jobs are skipped and `ci-ok` still reports, so the
-  # required check stays green. `full` is true for a pull request and a merge
+  # required check stays green. `benches` is true for a change under
+  # `benches/`, which only turns Clippy on, since its `--all-targets` compiles
+  # the benchmarks: a benchmark is never run by CI and says nothing about the
+  # crates, so the tests, the platforms, the feature powerset and the rest stay
+  # off (the root manifest and the lockfile remain code, so a new dependency of
+  # the benchmarks still runs everything). `full` is true for a pull request and a merge
   # group, the only places where content is seen before it becomes final; a
   # push to `main` repeats a pull request already run against an up-to-date
   # base, and a release pull request only bumps versions and the changelog,
@@ -46,6 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       code: ${{ steps.decide.outputs.code }}
+      benches: ${{ steps.decide.outputs.benches }}
       full: ${{ steps.decide.outputs.full }}
       os: ${{ steps.decide.outputs.os }}
     steps:
@@ -67,13 +73,17 @@ jobs:
               - ".taplo.toml"
               - "justfile"
               - ".github/workflows/**"
+            benches:
+              - "benches/**"
       - id: decide
         env:
           CODE: ${{ github.event_name == 'merge_group' || steps.filter.outputs.code == 'true' }}
+          BENCHES: ${{ steps.filter.outputs.benches == 'true' }}
           FULL: ${{ github.event_name == 'merge_group' || (github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release-plz-')) }}
         run: |
           {
             echo "code=$CODE"
+            echo "benches=$BENCHES"
             echo "full=$FULL"
             if [ "$FULL" = "true" ]; then
               echo 'os=["ubuntu-latest", "macos-latest", "windows-latest"]'
@@ -98,10 +108,12 @@ jobs:
       - run: taplo fmt --check
 
   # Guards the lint policy: clippy on every target with warnings as errors.
+  # Also the one job a change to the benchmarks turns on, since `--all-targets`
+  # compiles them.
   clippy:
     name: Clippy
     needs: [changes]
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.code == 'true' || needs.changes.outputs.benches == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
