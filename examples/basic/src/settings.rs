@@ -3,7 +3,7 @@
 //! `Settings::default()` is the only source of truth for the defaults; the
 //! environment layers on top of it, so that `DATABASE__MODE=sync` with
 //! `DATABASE__URL` and `DATABASE__AUTH_TOKEN` is all a deployment needs to
-//! say. No file is read. Where the server listens and what tracing shows
+//! say, `DATABASE__SYNC_INTERVAL` setting the rhythm of the replica's task. No file is read. Where the server listens and what tracing shows
 //! are not settings: they are constants of `main.rs` and `telemetry.rs`.
 
 use std::fmt;
@@ -40,6 +40,9 @@ pub struct Settings {
     pub foreign_keys: bool,
     /// The size of the pool.
     pub max_connections: usize,
+    /// Seconds between two rounds of the replica's synchronisation task, for
+    /// the `sync` mode.
+    pub sync_interval: u64,
 }
 
 impl Default for Settings {
@@ -51,6 +54,7 @@ impl Default for Settings {
             auth_token: String::new(),
             foreign_keys: true,
             max_connections: 8,
+            sync_interval: 30,
         }
     }
 }
@@ -65,6 +69,7 @@ impl fmt::Debug for Settings {
             .field("auth_token", &"<redacted>")
             .field("foreign_keys", &self.foreign_keys)
             .field("max_connections", &self.max_connections)
+            .field("sync_interval", &self.sync_interval)
             .finish()
     }
 }

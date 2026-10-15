@@ -1,41 +1,37 @@
-//! The routes that operate an embedded replica.
+//! The routes that operate the replica's synchronisation task.
 
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
-use turso_orm::Database;
+use turso_orm::ReplicaSync;
 
 use crate::dto::sync::{ReplicaStatus, SyncReport};
 use crate::error::ApiError;
 use crate::service::sync;
-use crate::settings::Mode;
 use crate::state::AppState;
 
 // --8<-- [start:sync]
-/// The pool, when the database is an embedded replica; `409 Conflict`
-/// otherwise, since the other modes have nothing to synchronise.
-fn replica(state: &AppState) -> Result<&Database, ApiError> {
-    if state.settings.mode == Mode::Sync {
-        Ok(&state.db)
-    } else {
-        Err(ApiError::NotAReplica)
-    }
+/// The synchronisation task, which only the `sync` mode starts; the other
+/// modes answer `409 Conflict`, since they have nothing to synchronise.
+fn task(state: &AppState) -> Result<&ReplicaSync, ApiError> {
+    state.sync.as_deref().ok_or(ApiError::NotAReplica)
 }
 
-/// `POST /sync`: pushes the replica's writes and pulls the cloud's.
+/// `POST /sync`: runs a round now, serialised with the task's own rounds.
 pub async fn run(State(state): State<AppState>) -> Result<Json<SyncReport>, ApiError> {
-    let pulled = sync::push_pull(replica(&state)?).await?;
-    Ok(Json(SyncReport { pulled }))
+    let status = sync::round(task(&state)?).await?;
+    Ok(Json(status.into()))
+}
+
+/// `GET /sync/stats`: what the last round saw, without touching the engine.
+pub async fn stats(State(state): State<AppState>) -> Result<Json<ReplicaStatus>, ApiError> {
+    Ok(Json(task(&state)?.status().into()))
 }
 // --8<-- [end:sync]
 
 /// `POST /sync/checkpoint`.
 pub async fn checkpoint(State(state): State<AppState>) -> Result<StatusCode, ApiError> {
-    sync::checkpoint(replica(&state)?).await?;
+    task(&state)?;
+    sync::checkpoint(&state.db).await?;
     Ok(StatusCode::NO_CONTENT)
-}
-
-/// `GET /sync/stats`.
-pub async fn stats(State(state): State<AppState>) -> Result<Json<ReplicaStatus>, ApiError> {
-    Ok(Json(sync::stats(replica(&state)?).await?.into()))
 }

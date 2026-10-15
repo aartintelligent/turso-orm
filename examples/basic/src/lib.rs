@@ -8,8 +8,9 @@
 //! Around them, `settings` reads the database configuration, `db` opens the
 //! database in the mode it names, `state` carries the pool and the settings
 //! into the handlers, and `telemetry` sets up tracing. In the `sync` mode
-//! the database is an embedded replica, and `POST /sync` is how its writes
-//! reach Turso Cloud. The documentation site includes the services, the
+//! the database is an embedded replica and a `ReplicaSync` task, started by
+//! `main` and carried by the state, pushes and pulls it on a schedule;
+//! `POST /sync` forces a round. The documentation site includes the services, the
 //! DTOs, the error mapping, a handler and the connection block by block.
 
 pub mod db;

@@ -52,8 +52,9 @@ turso-orm-migration = { version = "0.1", path = "../../crates/turso-orm-migratio
 axum = "0.8"
 
 # The async runtime: `macros` for `#[tokio::main]` and `#[tokio::test]`,
-# `rt-multi-thread` for the server, `net` for the listener.
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+# `rt-multi-thread` for the server, `net` for the listener, `signal` for the
+# `Ctrl-C` that shuts the server and the replica's task down in order.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal"] }
 
 # The database settings of `settings.rs`: defaults in code, overridden by the
 # `DATABASE__*` environment variables. No file is read, hence no format
