@@ -85,7 +85,7 @@ There are five ways, and they differ in how many queries run and in what
 shape the result takes. Pick by what you have in hand.
 
 ```rust
---8<-- "examples/basic/src/service/agents.rs:relations"
+--8<-- "examples/basic/src/service/agent.rs:relations"
 ```
 
 ### From one model: `find_related`
@@ -134,7 +134,7 @@ loaders fetch everything in one `WHERE key IN (...)` query and hand the
 result back aligned with your input:
 
 ```rust
---8<-- "examples/basic/src/service/catalog.rs:loaders"
+--8<-- "examples/basic/src/service/llm_model.rs:loaders"
 ```
 
 `load_many(Other, db)` returns `Vec<Vec<Other::Model>>`, one inner vector
@@ -182,7 +182,7 @@ loader under a name that states the intent, and fails on a relation
 without a junction.
 
 ```rust
---8<-- "examples/basic/src/service/threads.rs:many_to_many"
+--8<-- "examples/basic/src/service/thread_tool.rs:many_to_many"
 ```
 
 The `via` relation generates no foreign key of its own: the junction's
@@ -208,7 +208,7 @@ variants keep their definition, reachable through `Relation::X.def()`:
   under an alias that filters can name with `Expr::col(("alias", "column"))`.
 
 ```rust
---8<-- "examples/basic/src/service/threads.rs:self_reference"
+--8<-- "examples/basic/src/service/thread.rs:self_reference"
 ```
 
 When a join brings the base table in a second time, as a self-join does,
@@ -225,7 +225,7 @@ chain names the hops once, as a unit struct, and every hop is a relation
 definition you already have:
 
 ```rust
---8<-- "examples/basic/src/service/agents.rs:linked"
+--8<-- "examples/basic/src/service/agent.rs:linked"
 ```
 
 `model.find_linked(Chain)` returns a `Select` of the entity at the end of
@@ -236,7 +236,7 @@ the first and the last tables are selected, the ones in between serve the
 join. A table the chain visits twice is aliased as in a self-join.
 
 ```rust
---8<-- "examples/basic/src/service/agents.rs:find_linked"
+--8<-- "examples/basic/src/service/agent.rs:find_linked"
 ```
 
 The same two entities can be linked by several chains, each a struct of

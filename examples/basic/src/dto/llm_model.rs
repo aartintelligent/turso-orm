@@ -1,4 +1,4 @@
-//! Bodies and responses of the catalog of models.
+//! Bodies, parameters and responses of the models.
 
 use crate::entity::{agent, llm_model};
 use serde::{Deserialize, Serialize};

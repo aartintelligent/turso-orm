@@ -127,12 +127,15 @@ public API: run `just examples` after changing one. `examples/basic` is a
 JSON API on axum over a small agent runtime: `src/entity/` holds one module
 per table, `src/migration/` one migration per table plus the seed, with the
 `migrate` binary to run them by hand; then four layers, `dto`, `service`,
-`handler` and `router.rs`, with `error.rs` mapping `DbErr` to statuses,
-`settings.rs` reading the database settings from `DATABASE__*` environment
-variables over defaults in code, `db.rs` opening the database in the mode
-they name and `telemetry.rs` setting up tracing. The documentation site
-includes its entities, migrations, services, DTOs, error mapping, connection
-and tests block by block.
+`handler` and `router.rs`, each with one module per table named after it,
+the services taking any connection rather than the pool; `error.rs` maps
+`DbErr` and a refused request to statuses, `extract.rs` keeps axum's
+rejections in the error envelope, `settings.rs` reads the database settings
+from `DATABASE__*` environment variables over defaults in code, `db.rs`
+opens the database in the mode they name, `state.rs` holds the pool, the
+settings and the replica's task behind accessors, and `telemetry.rs` sets up
+tracing. The documentation site includes its entities, migrations, services,
+DTOs, error mapping, extractors, connection and tests block by block.
 
 ## Development rules
 

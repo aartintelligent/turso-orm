@@ -100,14 +100,21 @@ JSON API on axum over a small agent runtime, one crate. `src/entity/` holds one 
 six in all: `llm_model` → `agent` → `thread` → `thread_record`, `tool` and the `thread_tool` junction
 (a thread may be forked from another and reviewed by a second agent; the models derive `serde`).
 `src/migration/` holds one migration per table plus the seed and the migrator, `src/bin/migrate.rs`
-the `up`/`down`/`status` CLI. Then four layers: `dto/` (bodies, query parameters, responses, including
-the `DeriveIntoActiveModel`, `FromQueryResult` and `DerivePartialModel` types), `service/` (the ORM
-calls, no HTTP; the site's blocks), `handler/` (one short function per route) and `router.rs`;
-`error.rs` maps `DbErr` to statuses; `settings.rs` is a `config` struct for the database only, defaults
+the `up`/`down`/`status` CLI. Then four layers, each with one module per table named after it
+(`llm_model`, `agent`, `thread`, `thread_record`, `thread_tool`): `dto/` (bodies, query parameters,
+responses, including the `DeriveIntoActiveModel`, `FromQueryResult` and `DerivePartialModel` types;
+`dto/base/pagination.rs` holds `PageRequest`, `Page<T>`, `After` and `Direction`), `service/` (the ORM
+calls on any `C: ConnectionTrait` or `+ TransactionTrait`, never `&Database`, no HTTP; the site's
+blocks; the listing of agents carries its `AgentFilter`/`AgentSort`/`AgentQuery` with `condition()`
+and `sort_column()`), `handler/` (one short function per route, extracting through the `ApiJson`,
+`ApiPath` and `ApiQuery` wrappers of `extract.rs`, plus `health.rs`) and `router.rs` (every path,
+spelled nowhere else); `error.rs` maps `DbErr` and a refused request to statuses with no wildcard
+arm, logging at `warn` or `error`; `settings.rs` is a `config` struct for the database only, defaults
 in code and `DATABASE__*` environment overrides (no file; the listen address and the log filter are
 constants), `db.rs` opens the four modes (`memory`, `file`, `sync`, `remote`, hence the `sync` and
-`serverless` features on its `turso-orm`), `state.rs` is the `AppState` with
-`FromRef<AppState> for Database` and, in the `sync` mode, the `ReplicaSync` task that `main` starts
+`serverless` features on its `turso-orm`), `state.rs` is the `AppState` with private fields behind
+accessors, `readiness()` for `GET /health`, `FromRef<AppState> for Database` and, in the `sync` mode,
+the `ReplicaSync` task that `main` starts
 through `service::sync::start` and shuts down after the server (the `/sync` routes drive it;
 `DATABASE__SYNC_INTERVAL` sets its rhythm), `telemetry.rs` the tracing setup; `tests/api.rs` drives the router
 with `oneshot` in memory, `tests/migrations.rs` applies and reverts the migrations, both are what CI

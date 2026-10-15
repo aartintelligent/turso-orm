@@ -21,8 +21,16 @@ until `commit` or `rollback`. The `Transaction` implements the same
 model method accepts `&txn` where it accepted `&db`:
 
 ```rust
---8<-- "examples/basic/src/service/threads.rs:begin_commit"
+--8<-- "examples/basic/src/service/thread.rs:begin_commit"
 ```
+
+The function takes any connection, `C: ConnectionTrait + TransactionTrait`,
+rather than the pool. Called with the pool, `db.begin()` is a `BEGIN`;
+called from inside another transaction, it is a savepoint on that
+transaction, and the caller decides the fate of the whole. The services of
+the basic example are all written this way, so that a handler can call one
+on the pool while a larger use case nests the same function in its own
+transaction.
 
 Until `commit`, nothing written through `txn` is visible to statements
 that go through `db`, because those run on other connections. A `txn`
@@ -62,7 +70,7 @@ statements made since the savepoint; committing it releases the
 savepoint and leaves the outer transaction open, still uncommitted:
 
 ```rust
---8<-- "examples/basic/src/service/threads.rs:savepoint"
+--8<-- "examples/basic/src/service/thread.rs:savepoint"
 ```
 
 This is how a service attempts an optional step inside a larger unit of
@@ -86,7 +94,7 @@ commit if everything succeeded, roll back otherwise. `db.transaction`
 does that script for you:
 
 ```rust
---8<-- "examples/basic/src/service/threads.rs:transaction"
+--8<-- "examples/basic/src/service/thread_record.rs:transaction"
 ```
 
 The closure receives `&Transaction` and returns a pinned, boxed future,

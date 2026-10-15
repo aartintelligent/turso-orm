@@ -1,31 +1,39 @@
-//! The threads: opening, paging by key, appending records, forking, tools.
+//! The threads: opening, paging by key, completing, forking, the reviewer,
+//! and the projections of the table.
 
 use crate::entity::thread_record::Role;
 use crate::entity::{Thread, ThreadRecord, Tool};
 use crate::entity::{thread, thread_record, thread_tool, tool};
 use turso_orm::prelude::*;
+use turso_orm::{ConnectionTrait, TransactionTrait};
 
 use crate::dto::thread::{
-    AppendRecord, OpenThread, OpenWithTools, ThreadSummary, ThreadWithRecords, ThreadWithTools,
+    OpenThread, OpenWithTools, ThreadSummary, ThreadWithRecords, ThreadWithTools,
 };
 
 /// Opens a thread from the request body.
-pub async fn open_thread(db: &Database, body: OpenThread) -> Result<thread::Model, DbErr> {
+pub async fn open_thread<C: ConnectionTrait>(
+    db: &C,
+    body: OpenThread,
+) -> Result<thread::Model, DbErr> {
     body.into_active_model().insert(db).await
 }
 
 // --8<-- [start:requests]
 /// Opens a thread from a raw JSON object: every key that names a column is
 /// set, the others are ignored.
-pub async fn open_thread_from_json(
-    db: &Database,
+pub async fn open_thread_from_json<C: ConnectionTrait>(
+    db: &C,
     body: serde_json::Value,
 ) -> Result<thread::Model, DbErr> {
     thread::ActiveModel::from_json(body)?.insert(db).await
 }
 
 /// Deletes the threads whose title starts with `prefix` and returns them as they were.
-pub async fn purge_threads(db: &Database, prefix: &str) -> Result<Vec<thread::Model>, DbErr> {
+pub async fn purge_threads<C: ConnectionTrait>(
+    db: &C,
+    prefix: &str,
+) -> Result<Vec<thread::Model>, DbErr> {
     Thread::delete_many()
         .filter(thread::Column::Title.starts_with(prefix))
         .exec_with_returning(db)
@@ -36,14 +44,12 @@ pub async fn purge_threads(db: &Database, prefix: &str) -> Result<Vec<thread::Mo
 // --8<-- [start:cursor]
 /// The threads after a key, `size` at a time, the way an API with
 /// `?after=<id>` pages: an index seek that stays stable under writes.
-pub async fn threads_after(
-    db: &Database,
+pub async fn threads_after<C: ConnectionTrait>(
+    db: &C,
     after: Option<i32>,
     size: u64,
 ) -> Result<Vec<thread::Model>, DbErr> {
-    let mut page = Thread::find()
-        .cursor_by([thread::Column::Id])
-        .first(size.max(1));
+    let mut page = Thread::find().cursor_by([thread::Column::Id]).first(size);
     if let Some(id) = after {
         page = page.after(id);
     }
@@ -52,8 +58,8 @@ pub async fn threads_after(
 // --8<-- [end:cursor]
 
 /// A thread with its records in order; `None` when the thread does not exist.
-pub async fn thread_with_records(
-    db: &Database,
+pub async fn thread_with_records<C: ConnectionTrait>(
+    db: &C,
     id: i32,
 ) -> Result<Option<ThreadWithRecords>, DbErr> {
     let groups = Thread::find_by_id(id)
@@ -67,45 +73,16 @@ pub async fn thread_with_records(
         .map(|(thread, records)| ThreadWithRecords { thread, records }))
 }
 
-// --8<-- [start:transaction]
-/// Appends records to a thread, numbered after the last one, in one transaction:
-/// the sequence read and the insert either both happen or neither does.
-pub async fn append_records(
-    db: &Database,
-    thread_id: i32,
-    bodies: Vec<AppendRecord>,
-) -> Result<Vec<thread_record::Model>, DbErr> {
-    db.transaction(|txn| {
-        Box::pin(async move {
-            let next = ThreadRecord::find()
-                .filter(thread_record::Column::ThreadId.eq(thread_id))
-                .count(txn)
-                .await?;
-            let next = i32::try_from(next).map_err(|e| DbErr::Custom(e.to_string()))? + 1;
-            let records = bodies.into_iter().enumerate().map(|(i, body)| {
-                let seq = i32::try_from(i).map_or(i32::MAX, |i| next + i);
-                thread_record::ActiveModel {
-                    thread_id: Set(thread_id),
-                    seq: Set(seq),
-                    role: Set(body.role),
-                    content: Set(body.content),
-                    tool_calls: Set(body.tool_calls),
-                    ..Default::default()
-                }
-            });
-            ThreadRecord::insert_many(records)
-                .exec_with_returning(txn)
-                .await
-        })
-    })
-    .await
-}
-// --8<-- [end:transaction]
-
 // --8<-- [start:begin_commit]
 /// Completes a thread: the status change and the closing record go through
 /// one explicit transaction, so that neither is visible without the other.
-pub async fn complete_thread(db: &Database, id: i32) -> Result<Option<thread::Model>, DbErr> {
+///
+/// On the pool the transaction is a `BEGIN`; inside a caller's transaction
+/// it becomes a savepoint, and the caller decides the fate of the whole.
+pub async fn complete_thread<C: ConnectionTrait + TransactionTrait>(
+    db: &C,
+    id: i32,
+) -> Result<Option<thread::Model>, DbErr> {
     let txn = db.begin().await?;
     let Some(thread) = Thread::find_by_id(id).one(&txn).await? else {
         return Ok(None);
@@ -136,8 +113,8 @@ pub async fn complete_thread(db: &Database, id: i32) -> Result<Option<thread::Mo
 /// under a savepoint: when it already exists, the failed insert is undone
 /// by `ROLLBACK TO` and the existing tool is used, while the thread and the
 /// other tools stay in the outer transaction.
-pub async fn open_thread_with_tools(
-    db: &Database,
+pub async fn open_thread_with_tools<C: ConnectionTrait + TransactionTrait>(
+    db: &C,
     body: OpenWithTools,
 ) -> Result<ThreadWithTools, DbErr> {
     let txn = db.begin().await?;
@@ -185,8 +162,8 @@ pub async fn open_thread_with_tools(
 
 // --8<-- [start:self_reference]
 /// Opens a thread forked from another: the self-reference is a plain column.
-pub async fn fork_thread(
-    db: &Database,
+pub async fn fork_thread<C: ConnectionTrait>(
+    db: &C,
     parent: &thread::Model,
     agent_id: i32,
 ) -> Result<thread::Model, DbErr> {
@@ -202,15 +179,18 @@ pub async fn fork_thread(
 
 /// The thread this one was forked from: `Related<thread::Entity>` is
 /// `Parent`, the first self-relation declared.
-pub async fn parent_of(
-    db: &Database,
+pub async fn parent_of<C: ConnectionTrait>(
+    db: &C,
     fork: &thread::Model,
 ) -> Result<Option<thread::Model>, DbErr> {
     fork.find_related(Thread).one(db).await
 }
 
 /// The threads forked from this one: the reverse side, through its definition.
-pub async fn forks_of(db: &Database, root: &thread::Model) -> Result<Vec<thread::Model>, DbErr> {
+pub async fn forks_of<C: ConnectionTrait>(
+    db: &C,
+    root: &thread::Model,
+) -> Result<Vec<thread::Model>, DbErr> {
     Thread::find()
         .related_to(&thread::Relation::Children.def(), root)
         .all(db)
@@ -219,7 +199,10 @@ pub async fn forks_of(db: &Database, root: &thread::Model) -> Result<Vec<thread:
 
 /// The threads an agent reviews: the second relation to `agent`, joined
 /// under an alias so that the filter can name it.
-pub async fn reviewed_by(db: &Database, agent_name: &str) -> Result<Vec<thread::Model>, DbErr> {
+pub async fn reviewed_by<C: ConnectionTrait>(
+    db: &C,
+    agent_name: &str,
+) -> Result<Vec<thread::Model>, DbErr> {
     Thread::find()
         .join_as(
             JoinType::Inner,
@@ -232,81 +215,9 @@ pub async fn reviewed_by(db: &Database, agent_name: &str) -> Result<Vec<thread::
 }
 // --8<-- [end:self_reference]
 
-/// Records that a thread invoked a tool, creating the tool on first sight.
-pub async fn record_tool_use(
-    db: &Database,
-    thread_id: i32,
-    name: &str,
-) -> Result<tool::Model, DbErr> {
-    let tool = match Tool::find()
-        .filter(tool::Column::Name.eq(name))
-        .one(db)
-        .await?
-    {
-        Some(tool) => tool,
-        None => {
-            tool::ActiveModel {
-                name: Set(name.to_owned()),
-                ..Default::default()
-            }
-            .insert(db)
-            .await?
-        }
-    };
-    thread_tool::ActiveModel {
-        thread_id: Set(thread_id),
-        tool_id: Set(tool.id),
-    }
-    .insert(db)
-    .await?;
-    Ok(tool)
-}
-
-// --8<-- [start:many_to_many]
-/// The tools of one thread: from one model, through the junction, like any
-/// other relation.
-pub async fn tools_of_thread(
-    db: &Database,
-    thread: &thread::Model,
-) -> Result<Vec<tool::Model>, DbErr> {
-    thread.find_related(Tool).all(db).await
-}
-
-/// The threads that invoked a tool: a join through the junction lets the
-/// filter mention the other side.
-pub async fn threads_using(db: &Database, tool_name: &str) -> Result<Vec<thread::Model>, DbErr> {
-    Thread::find()
-        .inner_join(Tool)
-        .filter(tool::Column::Name.eq(tool_name))
-        .all(db)
-        .await
-}
-
-/// Every thread with all of its tools: one query, one entry per thread.
-pub async fn threads_with_tools(db: &Database) -> Result<Vec<ThreadWithTools>, DbErr> {
-    let groups = Thread::find()
-        .find_with_related(Tool)
-        .order_by(thread::Column::Id, Order::Asc)
-        .all(db)
-        .await?;
-    Ok(groups
-        .into_iter()
-        .map(|(thread, tools)| ThreadWithTools { thread, tools })
-        .collect())
-}
-
-/// The tools of each thread of a list, in input order, through the loader.
-pub async fn tools_for(
-    db: &Database,
-    threads: &[thread::Model],
-) -> Result<Vec<Vec<tool::Model>>, DbErr> {
-    threads.load_many(Tool, db).await
-}
-// --8<-- [end:many_to_many]
-
 // --8<-- [start:projections]
 /// The open threads as a partial model that selects its own columns.
-pub async fn summaries(db: &Database) -> Result<Vec<ThreadSummary>, DbErr> {
+pub async fn summaries<C: ConnectionTrait>(db: &C) -> Result<Vec<ThreadSummary>, DbErr> {
     Thread::find()
         .filter(thread::Column::Status.eq(thread::Status::Open))
         .into_partial_model::<ThreadSummary>()
@@ -315,7 +226,7 @@ pub async fn summaries(db: &Database) -> Result<Vec<ThreadSummary>, DbErr> {
 }
 
 /// Ids and titles as tuples, decoded by position.
-pub async fn titles(db: &Database) -> Result<Vec<(i32, String)>, DbErr> {
+pub async fn titles<C: ConnectionTrait>(db: &C) -> Result<Vec<(i32, String)>, DbErr> {
     Thread::find()
         .select_only()
         .column(thread::Column::Id)
@@ -326,12 +237,12 @@ pub async fn titles(db: &Database) -> Result<Vec<(i32, String)>, DbErr> {
 }
 
 /// The first thread as a JSON object keyed by column name.
-pub async fn first_as_json(db: &Database) -> Result<Option<serde_json::Value>, DbErr> {
+pub async fn first_as_json<C: ConnectionTrait>(db: &C) -> Result<Option<serde_json::Value>, DbErr> {
     Thread::find().into_json().one(db).await
 }
 
 /// Whether at least one thread is completed, without reading any.
-pub async fn any_completed(db: &Database) -> Result<bool, DbErr> {
+pub async fn any_completed<C: ConnectionTrait>(db: &C) -> Result<bool, DbErr> {
     Thread::find()
         .filter(thread::Column::Status.eq(thread::Status::Completed))
         .exists(db)

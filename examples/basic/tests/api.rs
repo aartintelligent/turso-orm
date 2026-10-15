@@ -459,3 +459,72 @@ async fn sync_needs_a_replica() {
         assert_eq!(body["error"], "the database is not an embedded replica");
     }
 }
+
+/// The health probe answers `204 No Content` while the database does.
+#[tokio::test]
+async fn health_pings_the_database() {
+    let (app, _db) = app().await;
+    let (status, body) = call(&app, "GET", "/health", None).await;
+    assert_eq!(status, StatusCode::NO_CONTENT, "{body}");
+}
+
+/// A listing keeps what the filter names, orders by the chosen column and direction, and clamps a
+/// page size beyond the cap.
+#[tokio::test]
+async fn agents_listing_filters_sorts_and_clamps() {
+    let (app, _db) = app().await;
+    for name in ["planner", "writer", "reviewer", "intern"] {
+        agent(&app, name, Some(1)).await;
+    }
+    agent(&app, "archivist", Some(2)).await;
+
+    let (_, by_name) = call(&app, "GET", "/agents?sort=name&direction=desc", None).await;
+    let names: Vec<&str> = by_name["items"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|item| item["agent"]["name"].as_str().expect("name"))
+        .collect();
+    assert_eq!(
+        names,
+        ["writer", "reviewer", "planner", "intern", "archivist"]
+    );
+
+    let (_, filtered) = call(&app, "GET", "/agents?name=er&model_id=1", None).await;
+    assert_eq!(filtered["total"], 4);
+    let (_, on_model) = call(&app, "GET", "/agents?model_id=2", None).await;
+    assert_eq!(on_model["items"][0]["agent"]["name"], "archivist");
+
+    let (_, clamped) = call(&app, "GET", "/agents?size=0", None).await;
+    assert_eq!(clamped["items"].as_array().expect("array").len(), 1);
+    assert_eq!(clamped["pages"], 5);
+    let (_, capped) = call(&app, "GET", "/agents?size=1000", None).await;
+    assert_eq!(capped["pages"], 1);
+}
+
+/// A body or a path segment that does not parse is refused with `400` inside the error envelope,
+/// like every other failure.
+#[tokio::test]
+async fn malformed_input_uses_the_error_envelope() {
+    let (app, _db) = app().await;
+    let request = Request::builder()
+        .method("POST")
+        .uri("/agents")
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from("{\"name\": "))
+        .expect("request");
+    let response = app.clone().oneshot(request).await.expect("response");
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let bytes = response
+        .into_body()
+        .collect()
+        .await
+        .expect("body")
+        .to_bytes();
+    let json: Value = serde_json::from_slice(&bytes).expect("the envelope is JSON");
+    assert!(json["error"].is_string(), "{json}");
+
+    let (status, body) = call(&app, "GET", "/agents/not-a-number", None).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(body["error"].is_string(), "{body}");
+}

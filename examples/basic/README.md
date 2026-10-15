@@ -10,19 +10,23 @@ self-reference, chains across tables, transactions and cascades.
 The schema and its history live in the crate: `entity/` holds one module
 per table, six in all, and `migration/` one migration per table plus the
 seed, with the `migrate` binary to run them by hand. The API is four
-layers, one directory each:
+layers, one directory each, and inside each layer one module per table,
+named after it, so that `grep thread_record` finds every piece of that
+table:
 
 | Layer | Knows about | Holds |
 |---|---|---|
-| `dto/` | JSON | the request bodies, the query parameters and the response shapes |
-| `service/` | the ORM | the functions that read and write the database; the guide includes them |
-| `handler/` | axum and the services | one short function per route |
-| `router.rs` | the handlers | every route of the API |
+| `dto/` | JSON | the request bodies, the query parameters and the response shapes; `base/` holds the paging every listing shares |
+| `service/` | the ORM | the functions that read and write the database on any connection, the pool or a caller's transaction; the guide includes them |
+| `handler/` | axum and the services | one short function per route, reading its input through the `extract` wrappers |
+| `router.rs` | the handlers | every path of the API, spelled nowhere else |
 
-`error.rs` turns a `DbErr` into an HTTP status in one place. Around the
-layers, `settings.rs` reads the configuration, `db.rs` opens the database
-in the mode it names, `state.rs` carries the pool and the settings into
-the handlers, and `telemetry.rs` sets up tracing.
+`error.rs` turns a `DbErr` and a refused request into an HTTP status in one
+place, and `extract.rs` keeps axum's own rejections in the same `{"error"}`
+envelope. Around the layers, `settings.rs` reads the configuration, `db.rs`
+opens the database in the mode it names, `state.rs` carries the pool, the
+settings and the replica's task into the handlers behind accessors, and
+`telemetry.rs` sets up tracing. `GET /health` pings the database.
 
 ## Run it
 
@@ -89,6 +93,12 @@ DATABASE__MODE=file DATABASE__PATH=agents.db cargo run --bin migrate -- status
 ## Try it
 
 With the server running, one request at a time.
+
+Check that the database answers:
+
+```sh
+curl -i localhost:7407/health
+```
 
 List the seeded models whose name contains `mini`:
 

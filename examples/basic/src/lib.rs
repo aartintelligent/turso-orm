@@ -1,10 +1,12 @@
 //! A JSON API on axum over a small agent runtime schema, in four layers.
 //!
 //! `entity` holds the schema, one module per table, and `migration` the
-//! migrations that create and seed it. `dto` describes what goes in and out
-//! as JSON, `service` talks to the
-//! database through the ORM and knows nothing of HTTP, `handler` binds the
-//! two, `router` lists every route, and `error` maps a `DbErr` to a status.
+//! migrations that create and seed it. Then one module per table in each
+//! layer, so that a table's name finds every piece of it: `dto` describes
+//! what goes in and out as JSON, `service` talks to the database through
+//! the ORM on any connection and knows nothing of HTTP, `handler` binds the
+//! two through the `extract` wrappers, `router` spells every path, and
+//! `error` maps a `DbErr` and a refused request to a status.
 //! Around them, `settings` reads the database configuration, `db` opens the
 //! database in the mode it names, `state` carries the pool and the settings
 //! into the handlers, and `telemetry` sets up tracing. In the `sync` mode
@@ -17,6 +19,7 @@ pub mod db;
 pub mod dto;
 pub mod entity;
 pub mod error;
+pub mod extract;
 pub mod handler;
 pub mod migration;
 pub mod router;

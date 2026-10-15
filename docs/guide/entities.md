@@ -138,7 +138,7 @@ same fields, each wrapped in an `ActiveValue<T>` with three states.
 why `..Default::default()` is the idiom for "only these fields":
 
 ```rust
---8<-- "examples/basic/src/service/catalog.rs:insert_update"
+--8<-- "examples/basic/src/service/llm_model.rs:insert_update"
 ```
 
 The insert sends only the fields of the request body; `id` is `NotSet`,
@@ -167,7 +167,7 @@ the fast path for bulk loads.
 exists yet:
 
 ```rust
---8<-- "examples/basic/src/service/agents.rs:save_delete"
+--8<-- "examples/basic/src/service/agent.rs:save_delete"
 ```
 
 Without an `id` in the body the draft's key is `NotSet` and `save`

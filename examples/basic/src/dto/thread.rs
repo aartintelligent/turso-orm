@@ -1,6 +1,5 @@
-//! Bodies and responses of the threads, their records and their tools.
+//! Bodies, parameters and responses of the threads.
 
-use crate::entity::thread_record::Role;
 use crate::entity::{thread, thread_record, tool};
 use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
@@ -25,24 +24,10 @@ pub struct OpenWithTools {
     pub tools: Vec<String>,
 }
 
-/// One item of the body of `POST /threads/{id}/records`.
-#[derive(Debug, Deserialize)]
-pub struct AppendRecord {
-    pub role: Role,
-    pub content: Option<String>,
-    pub tool_calls: Option<Json>,
-}
-
 /// The body of `POST /threads/{id}/fork`.
 #[derive(Debug, Deserialize)]
 pub struct Fork {
     pub agent_id: i32,
-}
-
-/// The body of `POST /threads/{id}/tools`.
-#[derive(Debug, Deserialize)]
-pub struct UseTool {
-    pub name: String,
 }
 
 /// `DELETE /threads` parameters.

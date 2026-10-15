@@ -14,7 +14,7 @@ use crate::state::AppState;
 /// The synchronisation task, which only the `sync` mode starts; the other
 /// modes answer `409 Conflict`, since they have nothing to synchronise.
 fn task(state: &AppState) -> Result<&ReplicaSync, ApiError> {
-    state.sync.as_deref().ok_or(ApiError::NotAReplica)
+    state.sync().ok_or(ApiError::NotAReplica)
 }
 
 /// `POST /sync`: runs a round now, serialised with the task's own rounds.
@@ -32,6 +32,6 @@ pub async fn stats(State(state): State<AppState>) -> Result<Json<ReplicaStatus>,
 /// `POST /sync/checkpoint`.
 pub async fn checkpoint(State(state): State<AppState>) -> Result<StatusCode, ApiError> {
     task(&state)?;
-    sync::checkpoint(&state.db).await?;
+    sync::checkpoint(state.db()).await?;
     Ok(StatusCode::NO_CONTENT)
 }

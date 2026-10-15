@@ -4,7 +4,7 @@
 use std::sync::Arc;
 
 use axum::extract::FromRef;
-use turso_orm::{Database, ReplicaSync};
+use turso_orm::{Database, DbErr, ReplicaSync};
 
 use crate::settings::Settings;
 
@@ -12,15 +12,17 @@ use crate::settings::Settings;
 ///
 /// `Database` is a pool, cheap to clone and safe to share; the settings and
 /// the task are behind an `Arc` so that cloning the state stays cheap too.
+/// The fields are private: a handler reads them through the accessors, and
+/// nothing outside this module decides what the state holds.
 #[derive(Clone, Debug)]
 pub struct AppState {
     /// The pool.
-    pub db: Database,
+    db: Database,
     /// The database settings the process started with.
-    pub settings: Arc<Settings>,
+    settings: Arc<Settings>,
     /// The task that pushes and pulls the replica; `None` outside the `sync`
     /// mode.
-    pub sync: Option<Arc<ReplicaSync>>,
+    sync: Option<Arc<ReplicaSync>>,
 }
 
 impl AppState {
@@ -38,6 +40,26 @@ impl AppState {
     pub fn with_sync(mut self, sync: Arc<ReplicaSync>) -> Self {
         self.sync = Some(sync);
         self
+    }
+
+    /// The pool.
+    pub fn db(&self) -> &Database {
+        &self.db
+    }
+
+    /// The database settings the process started with.
+    pub fn settings(&self) -> &Settings {
+        &self.settings
+    }
+
+    /// The synchronisation task, when the database is a replica.
+    pub fn sync(&self) -> Option<&ReplicaSync> {
+        self.sync.as_deref()
+    }
+
+    /// Checks that the database answers, for a health probe.
+    pub async fn readiness(&self) -> Result<(), DbErr> {
+        Ok(self.db.ping().await?)
     }
 }
 

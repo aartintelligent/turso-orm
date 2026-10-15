@@ -1,62 +1,70 @@
-//! Every route of the API, each bound to one handler.
+//! Every route of the API, each bound to one handler; the paths are spelled
+//! here and nowhere else.
 //!
-//! The state carries the pool and the settings; a handler extracts
-//! `State<Database>` through `FromRef`, or `State<AppState>` for the rest.
+//! The state carries the pool, the settings and the task; a handler extracts
+//! `State<Database>` through `FromRef`, or `State<AppState>` when it needs
+//! more than the pool.
 
 use axum::Router;
 use axum::routing::{delete, get, patch, post, put};
 
-use crate::handler::{agents, catalog, sync, threads};
+use crate::handler::{agent, health, llm_model, sync, thread, thread_record, thread_tool};
 use crate::state::AppState;
 
 /// Builds the router over `state`.
 pub fn build(state: AppState) -> Router {
     Router::new()
-        // The replica.
+        // The process.
+        .route("/health", get(health::check))
         .route("/sync", post(sync::run))
         .route("/sync/checkpoint", post(sync::checkpoint))
         .route("/sync/stats", get(sync::stats))
-        // The catalog.
+        // llm_model
         .route(
             "/models",
-            get(catalog::search_models).post(catalog::create_model),
+            get(llm_model::search).post(llm_model::create),
         )
-        .route("/models/batch", post(catalog::create_models))
-        .route("/models/below", delete(catalog::remove_below))
-        .route("/models/discount", patch(catalog::discount))
-        .route("/models/stats", get(catalog::stats))
-        .route("/models/with-agents", get(catalog::with_agents))
-        .route("/models/{id}", get(catalog::find_model))
-        .route("/models/{id}/price", put(catalog::update_price))
-        // The agents.
+        .route("/models/batch", post(llm_model::create_many))
+        .route("/models/below", delete(llm_model::remove_below))
+        .route("/models/discount", patch(llm_model::discount))
+        .route("/models/stats", get(llm_model::stats))
+        .route("/models/with-agents", get(llm_model::with_agents))
+        .route("/models/{id}", get(llm_model::find))
+        .route("/models/{id}/price", put(llm_model::update_price))
+        // agent
         .route(
             "/agents",
-            get(agents::list).post(agents::create).put(agents::save),
+            get(agent::list).post(agent::create).put(agent::save),
         )
-        .route("/agents/names", get(agents::names))
-        .route("/agents/with-models", get(agents::with_models))
-        .route("/agents/with-tools", get(agents::with_tools))
-        .route("/agents/{id}", get(agents::get).delete(agents::delete))
-        .route("/agents/{id}/tools", get(agents::tools))
-        // The threads.
+        .route("/agents/names", get(agent::names))
+        .route("/agents/with-models", get(agent::with_models))
+        .route("/agents/with-tools", get(agent::with_tools))
+        .route("/agents/{id}", get(agent::get).delete(agent::delete))
+        .route("/agents/{id}/tools", get(agent::tools))
+        // thread
         .route(
             "/threads",
-            get(threads::list).post(threads::open).delete(threads::purge),
+            get(thread::list).post(thread::open).delete(thread::purge),
         )
-        .route("/threads/json", post(threads::open_from_json))
-        .route("/threads/with-tools", post(threads::open_with_tools))
-        .route("/threads/summaries", get(threads::summaries))
-        .route("/threads/titles", get(threads::titles))
-        .route("/threads/any-completed", get(threads::any_completed))
-        .route("/threads/with-tools", get(threads::with_tools))
-        .route("/threads/reviewed-by/{name}", get(threads::reviewed_by))
-        .route("/threads/using/{tool}", get(threads::using))
-        .route("/threads/{id}", get(threads::get))
-        .route("/threads/{id}/records", post(threads::append_records))
-        .route("/threads/{id}/complete", post(threads::complete))
-        .route("/threads/{id}/fork", post(threads::fork))
-        .route("/threads/{id}/parent", get(threads::parent))
-        .route("/threads/{id}/forks", get(threads::forks))
-        .route("/threads/{id}/tools", get(threads::tools).post(threads::use_tool))
+        .route("/threads/json", post(thread::open_from_json))
+        .route("/threads/with-tools", post(thread::open_with_tools))
+        .route("/threads/summaries", get(thread::summaries))
+        .route("/threads/titles", get(thread::titles))
+        .route("/threads/any-completed", get(thread::any_completed))
+        .route("/threads/reviewed-by/{name}", get(thread::reviewed_by))
+        .route("/threads/{id}", get(thread::get))
+        .route("/threads/{id}/complete", post(thread::complete))
+        .route("/threads/{id}/fork", post(thread::fork))
+        .route("/threads/{id}/parent", get(thread::parent))
+        .route("/threads/{id}/forks", get(thread::forks))
+        // thread_record
+        .route("/threads/{id}/records", post(thread_record::append))
+        // thread_tool
+        .route("/threads/with-tools", get(thread_tool::with_tools))
+        .route("/threads/using/{tool}", get(thread_tool::using))
+        .route(
+            "/threads/{id}/tools",
+            get(thread_tool::tools).post(thread_tool::use_tool),
+        )
         .with_state(state)
 }

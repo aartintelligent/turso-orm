@@ -29,7 +29,7 @@ once it joins another table that has a column of the same name.
 ## Finding rows
 
 ```rust
---8<-- "examples/basic/src/service/catalog.rs:filter"
+--8<-- "examples/basic/src/service/llm_model.rs:filter"
 ```
 
 `find_by_id` is the shortcut for a lookup by primary key; it takes a
@@ -85,7 +85,7 @@ browses; the stream is for processing every row without holding them all
 in memory.
 
 ```rust
---8<-- "examples/basic/src/service/agents.rs:paginate_stream"
+--8<-- "examples/basic/src/service/agent.rs:paginate_stream"
 ```
 
 `paginate(db, page_size)` returns a `Paginator` over the query. Pages are
@@ -96,6 +96,32 @@ can answer with the total and the current page from one query.
 
 `for_each_page` walks every page in turn and stops when a page comes back
 short or when your closure returns `false`.
+
+A listing endpoint has three more things to settle: what the client may
+filter on, what it may sort by, and how far it may page. The example
+settles them once, next to the service. The page request clamps rather
+than refuses, so that a size of zero or of a million both become a page the
+service can fetch, and the page carries its totals:
+
+```rust
+--8<-- "examples/basic/src/dto/base/pagination.rs:page_request"
+```
+
+The filter and the sort are plain types, and two functions turn them into
+the query: `condition` adds one criterion per field present, `sort_column`
+names the column behind each sort in an exhaustive `match`, so that a new
+sort does not compile until it has a column:
+
+```rust
+--8<-- "examples/basic/src/service/agent.rs:listing"
+```
+
+The query parameters pin the wire spelling of the sort apart from the
+service's enum, and build the query the service takes:
+
+```rust
+--8<-- "examples/basic/src/dto/agent.rs:list_params"
+```
 
 `stream(db)` executes the statement and yields models as the engine
 produces them. The stream borrows a pooled connection for its whole life,
@@ -112,7 +138,7 @@ row seen and asks for the rows after it, which is an index seek that
 stays stable under concurrent writes.
 
 ```rust
---8<-- "examples/basic/src/service/threads.rs:cursor"
+--8<-- "examples/basic/src/service/thread.rs:cursor"
 ```
 
 `cursor_by([columns])` names the key, most significant column first, so
@@ -132,9 +158,9 @@ columns and expressions, and decode into any struct that derives
 `FromQueryResult`:
 
 ```rust
---8<-- "examples/basic/src/dto/catalog.rs:project_struct"
+--8<-- "examples/basic/src/dto/llm_model.rs:project_struct"
 
---8<-- "examples/basic/src/service/catalog.rs:project"
+--8<-- "examples/basic/src/service/llm_model.rs:project"
 ```
 
 `select_only` clears the entity's column list; `column`, `column_as` and
@@ -150,7 +176,7 @@ ingredients.
 Three other shapes avoid the struct altogether:
 
 ```rust
---8<-- "examples/basic/src/service/threads.rs:projections"
+--8<-- "examples/basic/src/service/thread.rs:projections"
 ```
 
 | Call | You get |
@@ -166,7 +192,7 @@ Three other shapes avoid the struct altogether:
 time. The entity offers bulk forms:
 
 ```rust
---8<-- "examples/basic/src/service/catalog.rs:bulk"
+--8<-- "examples/basic/src/service/llm_model.rs:bulk"
 ```
 
 | Call | SQL | Returns |
@@ -193,7 +219,7 @@ Writing from a request body goes through `DeriveIntoActiveModel` or
 [entities page](entities.md#from-a-request-to-an-active-model).
 
 ```rust
---8<-- "examples/basic/src/service/threads.rs:requests"
+--8<-- "examples/basic/src/service/thread.rs:requests"
 ```
 
 ## Handling errors
@@ -227,7 +253,16 @@ lines long: the extractors of the framework, one service call, one
 response:
 
 ```rust
---8<-- "examples/basic/src/handler/agents.rs:handlers"
+--8<-- "examples/basic/src/handler/agent.rs:handlers"
+```
+
+The extractors are the framework's, wrapped so that their rejections fall
+into the same `{"error": …}` envelope. Left alone, a body that does not
+parse or a path segment that is not a number is answered as `text/plain`,
+and a client has to read two shapes; wrapped, it reads one:
+
+```rust
+--8<-- "examples/basic/src/extract.rs:extractors"
 ```
 
 ## Beyond the typed builder

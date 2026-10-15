@@ -39,7 +39,7 @@ docs/performance/              the Performance tab: `explain.md` (hand-written, 
 docs/guide/quickstart.md       quickstart; includes `crates/turso-orm/examples/quickstart.rs` (the `agent` entity alone), nothing from `examples/basic`
 docs/guide/database.md         the four modes, the pool options, the replica operations and the `ReplicaSync` task, the HTTP mode; includes `src/db.rs`, `src/service/sync.rs`, `src/main.rs` and `src/handler/sync.rs` of `examples/basic`
 docs/guide/observability.md    the tracing targets and levels of the driver, the example's subscriber and request span, a real excerpt; includes `src/telemetry.rs` of `examples/basic`; last page of the guide
-docs/guide/*.md                entities, queries (with error handling), relations, transactions, migrations; every block comes from `examples/basic` (`src/entity/*.rs`, `src/migration/*.rs`, `src/bin/migrate.rs`, `src/service/*.rs`, `src/dto/*.rs`, `src/error.rs`, `src/handler/*.rs`, `src/db.rs`, `src/telemetry.rs`, `tests/api.rs`); no Rust block is written inline
+docs/guide/*.md                entities, queries (with pagination and error handling), relations, transactions, migrations; every block comes from `examples/basic`, one module per table in each layer (`src/entity/*.rs`, `src/migration/*.rs`, `src/bin/migrate.rs`, `src/service/<table>.rs`, `src/dto/<table>.rs`, `src/dto/base/pagination.rs`, `src/error.rs`, `src/extract.rs`, `src/handler/<table>.rs`, `src/db.rs`, `src/telemetry.rs`, `tests/api.rs`); no Rust block is written inline
 docs/project/                  about, contributing, community, license
 ```
 
@@ -67,7 +67,7 @@ In the page:
 
 ````markdown
 ```rust
---8<-- "examples/basic/src/service/agents.rs:relations"
+--8<-- "examples/basic/src/service/agent.rs:relations"
 ```
 ````
 
