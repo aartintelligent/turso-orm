@@ -111,7 +111,8 @@ between two client objects. `select.rs`, `insert.rs`, `relations.rs` and `render
 work, the raw side on `prepare_cached` like the driver, and `render.rs` compares the entity API with
 the bare `turso-sql` builder. Keep the two sides of a group equivalent when editing one.
 
-The benchmarks are never a CI gate: CI only compiles them (`clippy --all-targets`, MSRV). They
+The benchmarks are never a CI gate: CI only compiles them (`clippy --all-targets`, which is the one job a
+benches-only change turns on, plus the MSRV check when code changes). They
 measure the ORM over each `turso` version, not this repository's own changes. `src/bin/report.rs`
 reads `target/criterion` and writes the page `docs/performance/turso-<version>.md` (version from
 `Cargo.lock`), then inserts its nav entry under the `# report: versions` comment of the Performance
@@ -136,8 +137,8 @@ that a page includes.
 `.github/workflows/ci.yml` also runs these; mirror them locally before pushing. The `changes` job sizes
 each run: documentation-only changes skip the build jobs, pushes to `main` and `release-plz-*` pull
 requests run a reduced set (Clippy, Linux tests, docs, cargo-deny, coverage), and a pull request
-touching `crates/`, `examples/`, `benches/`, a manifest, a lint config or a workflow runs all of them; `ci-ok`
-accepts skipped jobs:
+touching `crates/`, `examples/`, a manifest, a lint config or a workflow runs all of them, and a change
+under `benches/` alone turns on Clippy only (it compiles the benchmarks); `ci-ok` accepts skipped jobs:
 
 - **Docs on nightly with `-D warnings`** (`just doc`) and `rustdoc::broken_intra_doc_links = deny`:
   every `[`link`]` in `///` must resolve. Feature-gated public items need

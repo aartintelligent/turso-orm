@@ -62,8 +62,13 @@ single required status check. The `changes` job sizes each run:
   `typos.toml`) skips the build jobs: formatting, spelling and the commit lint
   still run, `ci-ok` still reports, and the site build of `docs.yml` guards
   the pages.
-- A pull request that touches code (`crates/`, `examples/`, `benches/`, a
-  manifest, a lint configuration, a workflow) runs everything: the three platforms, the
+- A change under `benches/` alone turns on Clippy only, whose
+  `--all-targets` compiles the benchmarks; nothing else, since a benchmark is
+  never run by CI and says nothing about the crates. The root manifest and
+  the lockfile remain code, so a new dependency of the benchmarks still runs
+  everything.
+- A pull request that touches code (`crates/`, `examples/`, a manifest, a
+  lint configuration, a workflow) runs everything: the three platforms, the
   feature powerset, the examples, the MSRV and the semver check.
 - A push to `main` and a release pull request (`release-plz-*`) run a reduced
   set: Clippy, the Linux tests, the docs, cargo-deny and the coverage. The
