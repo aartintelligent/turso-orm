@@ -3,7 +3,7 @@
 //!
 //! The database is configured by `DATABASE__*` environment variables over
 //! the defaults in `settings.rs`; without any, it lives in memory. The
-//! server always listens on `127.0.0.1:3000`.
+//! server always listens on `127.0.0.1:7407`.
 //!
 //! ```text
 //! cargo run
@@ -16,7 +16,7 @@ use migration::{Migrator, MigratorTrait};
 use tokio::net::TcpListener;
 
 /// Where the server listens. Not a setting: change it here.
-const LISTEN_ADDR: &str = "127.0.0.1:3000";
+const LISTEN_ADDR: &str = "127.0.0.1:7407";
 
 /// Reads the settings, migrates the database and listens.
 #[tokio::main]

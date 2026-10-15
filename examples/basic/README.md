@@ -29,7 +29,7 @@ cargo run
 ```
 
 The migrations run at start-up, then the server listens on
-`127.0.0.1:3000`, one tracing span per request and every SQL statement at
+`127.0.0.1:7407`, one tracing span per request and every SQL statement at
 `debug`. The catalog is seeded by the migrations: two providers, two
 models.
 
@@ -59,14 +59,14 @@ With the server running, one request at a time.
 List the seeded models whose name contains `mini`:
 
 ```sh
-curl localhost:3000/models?name=mini
+curl localhost:7407/models?name=mini
 ```
 
 Create an agent on the first model; the response is the stored row with
 its id:
 
 ```sh
-curl -X POST localhost:3000/agents \
+curl -X POST localhost:7407/agents \
   -H 'content-type: application/json' \
   -d '{"name":"planner","model_id":1}'
 ```
@@ -74,7 +74,7 @@ curl -X POST localhost:3000/agents \
 Open a thread for that agent:
 
 ```sh
-curl -X POST localhost:3000/threads \
+curl -X POST localhost:7407/threads \
   -H 'content-type: application/json' \
   -d '{"agent_id":1,"title":"Plan the launch"}'
 ```
@@ -83,7 +83,7 @@ Append two records to the thread, numbered after the last one in one
 transaction:
 
 ```sh
-curl -X POST localhost:3000/threads/1/records \
+curl -X POST localhost:7407/threads/1/records \
   -H 'content-type: application/json' \
   -d '[{"role":"user","content":"Plan the launch."},{"role":"assistant","content":"Three steps."}]'
 ```
@@ -91,7 +91,7 @@ curl -X POST localhost:3000/threads/1/records \
 Read the thread back with its records:
 
 ```sh
-curl localhost:3000/threads/1
+curl localhost:7407/threads/1
 ```
 
 Every route is listed in `src/router.rs`.

@@ -108,7 +108,7 @@ short function per route) and `router.rs`; `error.rs` maps `DbErr` to statuses; 
 file; the listen address and the log filter are constants), `db.rs` opens the four modes (`memory`, `file`, `sync`, `remote`, hence the `sync` and `serverless` features on its
 `turso-orm`), `state.rs` is the `AppState` with `FromRef<AppState> for Database`, `telemetry.rs` the
 tracing setup; `tests/api.rs` drives the router with `oneshot` in memory and is what CI runs,
-`cargo run` serves on 127.0.0.1:3000. Entity
+`cargo run` serves on 127.0.0.1:7407. Entity
 names stay in snake_case (`llm_model`, not `model`: every entity module already has a `Model` struct).
 They depend on the ORM by `path`, so a library change must keep them compiling: run `just examples`
 after touching public API. A new example depends on `common` rather than redefining entities.
