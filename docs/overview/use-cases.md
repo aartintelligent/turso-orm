@@ -16,11 +16,7 @@ user to configure.
 A small service, an internal tool or a prototype often needs less than a
 database server. With a Turso file behind it, the migrations run at
 start-up, the pool lives in the application state, and the service layer
-is tested against an in-memory database without opening a port. The basic
-example, a JSON API on axum over a small agent runtime, shows the entity
-API on all of this end to end.
-
-[:octicons-arrow-right-24: The examples on GitHub](https://github.com/aartintelligent/turso-orm/tree/main/examples)
+is tested against an in-memory database without opening a port.
 
 ## Turso Cloud, with or without a disk
 
