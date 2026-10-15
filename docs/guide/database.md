@@ -68,18 +68,34 @@ like any local database, and every read and write is local and fast.
 Nothing moves on its own. Writes made through the replica stay in the file
 until `Database::push` sends them, and writes made elsewhere are invisible
 until `Database::pull` brings them down; the engine never synchronises in
-the background. An application decides when, and the two calls are all
-there is to it:
+the background. An application decides when, with four operations on the
+pool:
+
+| Operation | What it does |
+|---|---|
+| `push()` | Sends the changes made through the replica since the last push. |
+| `pull()` | Brings down what other writers committed since the last pull, and says whether anything changed. |
+| `checkpoint()` | Folds the replica's write-ahead log into its file. |
+| `stats()` | What the replica knows about itself: changes waiting to be pushed, the size of its logs, the last push and pull, the revision it is at, the bytes exchanged. |
+
+Push and pull are the pair an application calls most, usually together:
 
 ```rust
 --8<-- "examples/basic/src/service/sync.rs:push_pull"
 ```
 
-The example exposes that pair as one route, refused in the other modes
-since a plain database has no replica:
+The example exposes the four as one resource, `/sync`, refused in the
+other modes since a plain database has no replica:
 
 ```rust
 --8<-- "examples/basic/src/handler/sync.rs:sync"
+```
+
+`POST /sync/checkpoint` and `GET /sync/stats` sit behind the two other
+functions of the same service:
+
+```rust
+--8<-- "examples/basic/src/service/sync.rs:checkpoint_stats"
 ```
 
 When to call them is the application's business. A service that owns its
@@ -87,8 +103,27 @@ data pushes after each batch of writes, or on a timer; one that shares the
 database pulls before a read that must be fresh. The connection function
 above pulls once when the replica is opened, so that a file reopened after
 a while serves what the cloud holds now and not what it held at the last
-run. `pull` answers whether it changed anything, which a periodic task can
-use to decide whether to refresh what it cached.
+run.
+
+The checkpoint matters to a replica that runs for long. Next to its file,
+the replica keeps two logs: the write-ahead log every local write appends
+to, and a revert log holding what undoes the changes not yet pushed. Both
+grow until a push followed by a checkpoint, so the natural place for
+`checkpoint` is right after a successful `push`. The stats make those
+decisions measurable: a pending count that keeps growing between pushes
+means they are failing, a write-ahead log past a threshold calls for a
+checkpoint, and the time of the last pull says how stale the replica may
+be.
+
+Two readings of the stats deserve a word, both observed against Turso
+Cloud with the pinned engine. The pending count is exact right after a
+push, which brings it to zero, but a pull resets the baseline it is counted
+from: after the example's push-then-pull it counts every local change since
+that pull, pushed or not, so read it before a push to learn what the push
+will carry. And a replica that follows the cloud through its logical log,
+which the engine chooses on its own, keeps the two sizes at zero and makes
+the checkpoint a no-op; the operations stay correct, they just have nothing
+to do.
 
 !!! note "Two clients, one database"
 
@@ -96,7 +131,8 @@ use to decide whether to refresh what it cached.
     other's writes only across a `push` or a `pull`. The driver's
     end-to-end test in `crates/turso-orm-driver/tests/sync.rs` exercises
     exactly that: a row written in the replica reaches the HTTP side after
-    `push`, a row written over HTTP reaches the replica after `pull`.
+    `push`, a row written over HTTP reaches the replica after `pull`, and
+    the stats count the pending change before the push and none after.
 
 ## Over HTTP
 
