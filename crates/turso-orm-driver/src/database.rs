@@ -189,14 +189,12 @@ impl Database {
     #[cfg(feature = "sync")]
     #[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
     pub async fn push(&self) -> Result<()> {
-        match &self.inner.engine {
-            Engine::Sync(db) => {
-                db.push().await?;
-                tracing::info!("replica pushed");
-                Ok(())
-            }
-            _ => Err(Error::InvalidOptions("not an embedded replica".into())),
-        }
+        let Engine::Sync(db) = &self.inner.engine else {
+            return Err(Error::InvalidOptions("not an embedded replica".into()));
+        };
+        db.push().await?;
+        tracing::info!("replica pushed");
+        Ok(())
     }
 
     /// Pulls remote changes from Turso Cloud — embedded replica only — and
@@ -209,14 +207,12 @@ impl Database {
     #[cfg(feature = "sync")]
     #[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
     pub async fn pull(&self) -> Result<bool> {
-        match &self.inner.engine {
-            Engine::Sync(db) => {
-                let changed = db.pull().await?;
-                tracing::info!(changed, "replica pulled");
-                Ok(changed)
-            }
-            _ => Err(Error::InvalidOptions("not an embedded replica".into())),
-        }
+        let Engine::Sync(db) = &self.inner.engine else {
+            return Err(Error::InvalidOptions("not an embedded replica".into()));
+        };
+        let changed = db.pull().await?;
+        tracing::info!(changed, "replica pulled");
+        Ok(changed)
     }
 
     /// Takes a connection from the pool, opening a new one if none is idle.
