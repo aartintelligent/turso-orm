@@ -44,7 +44,9 @@ picks another one:
 When the database is locked, `BEGIN` does not fail at once: the driver
 retries with a backoff for the duration of `busy_timeout`, five seconds
 by default. Only when that budget is exhausted does the error reach you,
-and `e.is_busy()` identifies it.
+and `e.is_busy()` identifies it. On an embedded replica the same retry
+covers every statement, since that engine reports a held lock instead of
+waiting for it; see the [database page](database.md#embedded-replicas).
 
 Over HTTP (`ConnectOptions::remote`), a transaction is a server-side
 session that spans several requests. The four modes are sent as they are;

@@ -236,7 +236,11 @@ deliberately excludes the `clock` feature so `Local` never enters the API.
   columns sit behind `ConnectOptions::experimental`. Over HTTP (`ConnectOptions::remote`) the busy
   timeout and MVCC do not apply. An embedded replica (`ConnectOptions::sync`) reads and writes its
   local file only: nothing reaches the cloud until `Database::push` and nothing arrives until
-  `Database::pull`, the engine never synchronises on its own. The end-to-end tests in
+  `Database::pull`, the engine never synchronises on its own. Its engine also ignores the busy
+  timeout: while one connection holds a write transaction, opening another connection, a pragma, a
+  statement and a `pull` all fail at once with `database is busy`, so the driver retries each of
+  them for `busy_timeout` on a replica (`retry_on_replica!`, `Database::replica_budget`) and
+  classifies that message as `ErrorKind::Busy`. The end-to-end tests in
   `crates/turso-orm-driver/tests/remote.rs` and `tests/sync.rs` need `TURSO_DATABASE_URL` and
   `TURSO_AUTH_TOKEN` (a database token, not an API token) and skip without them.
 - Conventional Commits drive `release-plz`; all crates share one version (`version_group`), and

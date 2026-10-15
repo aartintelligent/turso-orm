@@ -47,7 +47,7 @@ it back, so nothing leaks into the next borrower.
 |---|---|---|
 | `max_connections(n)` | 8 | The number of slots. The engine serialises work on one connection, so this is also the number of statements in flight. |
 | `acquire_timeout(d)` | 30 s | How long a borrower waits for a free slot before `DbErr::Driver` with a pool timeout. |
-| `busy_timeout(d)` | 5 s | How long the engine waits for a lock held by another connection, and how long the driver retries a `BEGIN IMMEDIATE` under contention. `None` disables both. |
+| `busy_timeout(d)` | 5 s | How long the engine waits for a lock held by another connection, and how long the driver retries a `BEGIN IMMEDIATE` under contention. On an embedded replica, how long the driver retries any statement, since that engine does not wait. `None` disables both. |
 | `foreign_keys(bool)` | on | Whether the engine enforces foreign keys, cascades included. |
 | `mvcc(bool)` | off | `PRAGMA journal_mode = 'mvcc'`, the prerequisite of `BEGIN CONCURRENT`. Local engine only. |
 | `pragma(name, value)` | | Any other pragma, applied to every connection in order. |
@@ -116,15 +116,29 @@ means they are failing, a write-ahead log past a threshold calls for a
 checkpoint, and the time of the last pull says how stale the replica may
 be.
 
-Two readings of the stats deserve a word, both observed against Turso
-Cloud with the pinned engine. The pending count is exact right after a
-push, which brings it to zero, but a pull resets the baseline it is counted
-from: after the example's push-then-pull it counts every local change since
-that pull, pushed or not, so read it before a push to learn what the push
-will carry. And a replica that follows the cloud through its logical log,
-which the engine chooses on its own, keeps the two sizes at zero and makes
-the checkpoint a no-op; the operations stay correct, they just have nothing
-to do.
+A replica and a local file differ in one more way, which the driver hides.
+The local engine waits for a lock held by another connection, for
+`busy_timeout`; the replica's engine does not: while one connection holds a
+write transaction, opening another connection, a pragma, a statement and a
+`pull` all fail at once with `database is busy`. On a replica the driver
+therefore does the waiting itself, retrying each of those with a backoff
+for the same `busy_timeout`, so that a second writer next to an open
+transaction behaves as it would on a file: it waits, then succeeds. A
+`busy_timeout` of `None` keeps the engine's behaviour, one attempt and a
+busy error, which `is_busy` identifies.
+
+Three observations against Turso Cloud with the pinned engine deserve a
+word. The pending count is exact right after a push, which brings it to
+zero, but a pull resets the baseline it is counted from: after the
+example's push-then-pull it counts every local change since that pull,
+pushed or not, so read it before a push to learn what the push will carry.
+A replica that follows the cloud through its logical log, which the engine
+chooses on its own, keeps the two sizes at zero and makes the checkpoint a
+no-op; the operations stay correct, they just have nothing to do. And a
+pull that brings down a `DROP TABLE` while the replica still holds unpushed
+rows of that table fails inside the engine with a syntax error: push before
+a schema change another writer may make, or make schema changes from one
+place.
 
 !!! note "Two clients, one database"
 

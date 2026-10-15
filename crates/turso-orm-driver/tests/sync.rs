@@ -14,7 +14,7 @@
 
 #![cfg(all(feature = "sync", feature = "serverless"))]
 
-use turso_orm_driver::{ConnectOptions, ConnectionTrait, Database, Statement};
+use turso_orm_driver::{ConnectOptions, ConnectionTrait, Database, Statement, TransactionTrait};
 
 /// Reads the credentials from the environment, or `None` to skip.
 fn credentials() -> Option<(String, String)> {
@@ -92,6 +92,35 @@ async fn replica_pushes_and_pulls() {
     assert!(remote.push().await.is_err());
     assert!(remote.stats().await.is_err());
 
+    // The replica's engine refuses a second connection, a pragma and a write
+    // while a transaction holds the write lock; the pool waits for the busy
+    // timeout instead of surfacing that, so a writer next to an open
+    // transaction succeeds once the transaction ends.
+    let txn = replica.begin().await.expect("begin");
+    txn.execute_unprepared(&format!("INSERT INTO {table} (name) VALUES ('carol')"))
+        .await
+        .expect("insert in txn");
+    let writer = {
+        let replica = replica.clone();
+        let table = table.clone();
+        tokio::spawn(async move {
+            replica
+                .execute_unprepared(&format!("INSERT INTO {table} (name) VALUES ('dave')"))
+                .await
+        })
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    txn.commit().await.expect("commit");
+    writer
+        .await
+        .expect("join")
+        .expect("the writer waited for the lock");
+    assert_eq!(count(&replica, &table).await, 4);
+
+    // The rows are pushed before the table goes: a pull that brings a `DROP
+    // TABLE` while the replica still holds unpushed rows of that table fails
+    // inside the engine with a syntax error.
+    replica.push().await.expect("push before the drop");
     remote
         .execute_unprepared(&format!("DROP TABLE {table}"))
         .await

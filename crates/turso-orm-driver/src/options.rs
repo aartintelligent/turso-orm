@@ -319,6 +319,11 @@ impl ConnectOptions {
 
     /// Sets how long a connection waits on a lock before failing with a busy
     /// error (default 5 s); `None` fails immediately.
+    ///
+    /// The local engine does the waiting itself. An embedded replica's
+    /// engine reports a held lock at once instead, so there the driver
+    /// retries the connection setup, each statement and each `pull` with a
+    /// backoff for this duration, which makes a replica behave like a file.
     #[must_use]
     pub fn busy_timeout(mut self, timeout: impl Into<Option<Duration>>) -> Self {
         self.busy_timeout = timeout.into();
@@ -367,6 +372,25 @@ impl ConnectOptions {
     /// Whether this points at the in-memory database.
     pub fn is_in_memory(&self) -> bool {
         matches!(self.source, Source::Memory)
+    }
+
+    /// The budget for retrying a statement that found the database busy,
+    /// `Some` for an embedded replica only.
+    ///
+    /// A local engine waits for a held lock itself, for `busy_timeout`; the
+    /// replica's engine reports the lock at once instead, so the driver does
+    /// the waiting for it with the same budget. A `None` busy timeout gives a
+    /// zero budget: one attempt, no retry.
+    #[allow(
+        clippy::unused_self,
+        reason = "the source is only inspected when the sync feature is on"
+    )]
+    pub(crate) fn replica_retry_budget(&self) -> Option<Duration> {
+        #[cfg(feature = "sync")]
+        if matches!(self.source, Source::Sync(_)) {
+            return Some(self.busy_timeout.unwrap_or_default());
+        }
+        None
     }
 
     /// Builds the engine builder for a local database at `path`, applying
@@ -455,5 +479,20 @@ mod tests {
         assert!(printed.contains("turso://db.turso.io"));
         assert!(!printed.contains("s3cret"));
         assert!(!printed.contains("a2V5"));
+    }
+}
+
+#[cfg(all(test, feature = "sync"))]
+mod replica_tests {
+    use super::*;
+
+    /// A replica gets the busy timeout as its retry budget; a local file gets none.
+    #[test]
+    fn replica_retry_budget_follows_the_source() {
+        let replica = ConnectOptions::sync("replica.db", "turso://db.turso.io");
+        assert_eq!(replica.replica_retry_budget(), Some(Duration::from_secs(5)));
+        let replica = ConnectOptions::sync("replica.db", "turso://db.turso.io").busy_timeout(None);
+        assert_eq!(replica.replica_retry_budget(), Some(Duration::ZERO));
+        assert_eq!(ConnectOptions::new("app.db").replica_retry_budget(), None);
     }
 }
