@@ -17,17 +17,39 @@ The crate has four layers, one directory each:
 | `handler/` | axum and the services | one short function per route |
 | `router.rs` | the handlers | every route of the API |
 
-`error.rs` turns a `DbErr` into an HTTP status in one place.
+`error.rs` turns a `DbErr` into an HTTP status in one place. Around the
+layers, `settings.rs` reads the configuration, `db.rs` opens the database
+in the mode it names, `state.rs` carries the pool and the settings into
+the handlers, and `telemetry.rs` sets up tracing.
 
 ## Run it
 
 ```sh
-cargo run                       # in memory; DATABASE_URL=agents.db keeps a file
+cargo run
 ```
 
-The migrations run at start-up, then the server listens on
-`127.0.0.1:3000`. A few requests to try, the catalog being seeded by the
-migrations:
+The settings are defaults in code, overridden by `BASIC__*` environment
+variables with `__` between levels; no file is read.
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `BASIC__DATABASE__MODE` | `memory` | `memory`, `file`, `sync` (a Turso Cloud replica) or `remote` (Turso Cloud over HTTP) |
+| `BASIC__DATABASE__PATH` | `basic.db` | The file, for `file` and `sync` |
+| `BASIC__DATABASE__URL` | | The Turso Cloud URL, for `sync` and `remote` |
+| `BASIC__DATABASE__AUTH_TOKEN` | | The Turso Cloud token, for `sync` and `remote` |
+| `BASIC__DATABASE__FOREIGN_KEYS` | `true` | Whether the engine enforces foreign keys |
+| `BASIC__DATABASE__MAX_CONNECTIONS` | `8` | The size of the pool |
+| `BASIC__SERVER__ADDR` | `127.0.0.1:3000` | The address to bind |
+| `BASIC__LOG__FILTER` | `info,turso_orm_driver=debug` | The tracing filter; the driver logs every statement at `debug` |
+
+```sh
+BASIC__DATABASE__MODE=file BASIC__DATABASE__PATH=agents.db cargo run
+BASIC__DATABASE__MODE=remote BASIC__DATABASE__URL=libsql://<db>.turso.io BASIC__DATABASE__AUTH_TOKEN=... cargo run
+```
+
+The migrations run at start-up, then the server listens on the configured
+address, one tracing span per request. A few requests to try, the catalog
+being seeded by the migrations:
 
 ```sh
 curl -s localhost:3000/models?name=mini

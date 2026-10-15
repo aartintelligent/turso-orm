@@ -21,17 +21,13 @@ until `commit` or `rollback`. The `Transaction` implements the same
 model method accepts `&txn` where it accepted `&db`:
 
 ```rust
-let txn = db.begin().await?;
-thread_record::ActiveModel { /* ... */ }.insert(&txn).await?;
-thread::Entity::update_many()
-    .col(thread::Column::Status, thread::Status::Completed)
-    .exec(&txn)
-    .await?;
-txn.commit().await?;
+--8<-- "examples/basic/src/service/threads.rs:begin_commit"
 ```
 
 Until `commit`, nothing written through `txn` is visible to statements
-that go through `db`, because those run on other connections.
+that go through `db`, because those run on other connections. A `txn`
+that goes out of scope before `commit`, as on the early `return` above,
+is rolled back; see [below](#what-happens-on-drop).
 
 ## Modes
 
@@ -64,19 +60,14 @@ statements made since the savepoint; committing it releases the
 savepoint and leaves the outer transaction open, still uncommitted:
 
 ```rust
-let txn = db.begin().await?;
-tool::ActiveModel { /* ... */ }.insert(&txn).await?;    // kept
-{
-    let sp = txn.begin().await?;                         // SAVEPOINT sp1
-    tool::ActiveModel { /* ... */ }.insert(&sp).await?;  // undone below
-    sp.rollback().await?;                                // ROLLBACK TO sp1
-}
-txn.commit().await?;                                     // commits the first insert
+--8<-- "examples/basic/src/service/threads.rs:savepoint"
 ```
 
-This is how a service can attempt an optional step inside a larger unit
-of work and discard just that step on failure. Savepoints nest to any
-depth; `Transaction::depth()` tells how deep a handle is.
+This is how a service attempts an optional step inside a larger unit of
+work and discards just that step on failure: here the insert of a tool
+that turns out to exist is undone by the savepoint's `rollback`, and the
+thread inserted before it stays. Savepoints nest to any depth;
+`Transaction::depth()` tells how deep a handle is.
 
 The engine keeps a single stack of savepoints, so only the innermost open
 transaction may act. While `sp` is open, running a statement through

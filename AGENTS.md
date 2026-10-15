@@ -103,8 +103,12 @@ and `migration` (`src/resource/`, one migration per table plus two seeds, a tiny
 CLI, a test). `basic` is a JSON API on axum over `common` in four layers: `dto/` (bodies, query
 parameters, responses, including the `DeriveIntoActiveModel`, `FromQueryResult` and
 `DerivePartialModel` types), `service/` (the ORM calls, no HTTP; the site's blocks), `handler/` (one
-short function per route) and `router.rs`; `error.rs` maps `DbErr` to statuses; `tests/api.rs` drives
-the router with `oneshot` in memory and is what CI runs, `cargo run` serves on 127.0.0.1:3000. Entity
+short function per route) and `router.rs`; `error.rs` maps `DbErr` to statuses; `settings.rs` is a
+`config` struct with defaults in code and `BASIC__*` environment overrides (no file), `db.rs` opens the
+four modes (`memory`, `file`, `sync`, `remote`, hence the `sync` and `serverless` features on its
+`turso-orm`), `state.rs` is the `AppState` with `FromRef<AppState> for Database`, `telemetry.rs` the
+tracing setup; `tests/api.rs` drives the router with `oneshot` in memory and is what CI runs,
+`cargo run` serves on the configured address. Entity
 names stay in snake_case (`llm_model`, not `model`: every entity module already has a `Model` struct).
 They depend on the ORM by `path`, so a library change must keep them compiling: run `just examples`
 after touching public API. A new example depends on `common` rather than redefining entities.

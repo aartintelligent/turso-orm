@@ -7,6 +7,8 @@
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
+use basic::AppState;
+use basic::settings::Settings;
 use entity::prelude::{Agent, LlmModel, LlmProvider, Thread, ThreadRecord, ThreadTool, Tool};
 use http_body_util::BodyExt;
 use migration::{Migrator, MigratorTrait};
@@ -20,7 +22,10 @@ async fn app() -> (Router, Database) {
         .await
         .expect("open");
     Migrator::up(&db, None).await.expect("migrate");
-    (basic::app(db.clone()), db)
+    (
+        basic::app(AppState::new(db.clone(), Settings::default())),
+        db,
+    )
 }
 
 /// Sends one request and decodes the JSON body, `Null` when there is none.
@@ -347,6 +352,42 @@ async fn threads_records_forks_and_tools() {
     assert_eq!(purged.as_array().expect("array").len(), 1);
 }
 
+/// An explicit transaction completes a thread with its closing record; savepoints let a
+/// thread take existing and new tools in one unit of work.
+#[tokio::test]
+async fn transactions_and_savepoints() {
+    let (app, db) = app().await;
+    let planner = agent(&app, "planner", Some(1)).await;
+    let root = thread(&app, planner, "Plan the launch", None).await;
+    let (status, completed) = call(&app, "POST", &format!("/threads/{root}/complete"), None).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(completed["status"], "done");
+    let (_, with_records) = call(&app, "GET", &format!("/threads/{root}"), None).await;
+    assert_eq!(with_records["records"][0]["role"], "system");
+    let (status, _) = call(&app, "POST", "/threads/999/complete", None).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+
+    call(
+        &app,
+        "POST",
+        &format!("/threads/{root}/tools"),
+        Some(json!({ "name": "search" })),
+    )
+    .await;
+    let (status, opened) = call(
+        &app,
+        "POST",
+        "/threads/with-tools",
+        Some(json!({ "agent_id": planner, "title": "Draft", "tools": ["search", "calculator"] })),
+    )
+    .await;
+    assert_eq!(status, StatusCode::CREATED, "{opened}");
+    assert_eq!(opened["tools"].as_array().expect("array").len(), 2);
+    // `search` existed and was reused; `calculator` was created: two tools in all.
+    assert_eq!(Tool::find().count(&db).await.expect("count"), 2);
+    assert_eq!(ThreadTool::find().count(&db).await.expect("count"), 3);
+}
+
 // --8<-- [start:cascade]
 /// Deleting an agent lets the engine cascade to its threads, their records and their junction rows.
 #[tokio::test]
@@ -419,7 +460,7 @@ async fn schema_from_entities_serves_the_api() {
         .await
         .expect("open");
     create_schema(&db).await.expect("schema");
-    let app = basic::app(db);
+    let app = basic::app(AppState::new(db, Settings::default()));
     let (_, stats) = call(&app, "GET", "/models/stats", None).await;
     assert_eq!(stats["count"], 0);
     let planner = agent(&app, "planner", None).await;

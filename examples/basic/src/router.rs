@@ -1,16 +1,16 @@
 //! Every route of the API, each bound to one handler.
 //!
-//! The pool is the shared state: `Database` is cheap to clone and safe to
-//! share, so every handler receives it through `State`.
+//! The state carries the pool and the settings; a handler extracts
+//! `State<Database>` through `FromRef`, or `State<AppState>` for the rest.
 
 use axum::Router;
 use axum::routing::{get, patch, post, put};
-use turso_orm::Database;
 
 use crate::handler::{agents, catalog, threads};
+use crate::state::AppState;
 
-/// Builds the router over `db`.
-pub fn build(db: Database) -> Router {
+/// Builds the router over `state`.
+pub fn build(state: AppState) -> Router {
     Router::new()
         // The catalog.
         .route("/providers", post(catalog::create_provider))
@@ -44,6 +44,7 @@ pub fn build(db: Database) -> Router {
             get(threads::list).post(threads::open).delete(threads::purge),
         )
         .route("/threads/json", post(threads::open_from_json))
+        .route("/threads/with-tools", post(threads::open_with_tools))
         .route("/threads/summaries", get(threads::summaries))
         .route("/threads/titles", get(threads::titles))
         .route("/threads/any-completed", get(threads::any_completed))
@@ -52,9 +53,10 @@ pub fn build(db: Database) -> Router {
         .route("/threads/using/{tool}", get(threads::using))
         .route("/threads/{id}", get(threads::get))
         .route("/threads/{id}/records", post(threads::append_records))
+        .route("/threads/{id}/complete", post(threads::complete))
         .route("/threads/{id}/fork", post(threads::fork))
         .route("/threads/{id}/parent", get(threads::parent))
         .route("/threads/{id}/forks", get(threads::forks))
         .route("/threads/{id}/tools", get(threads::tools).post(threads::use_tool))
-        .with_state(db)
+        .with_state(state)
 }

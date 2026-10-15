@@ -17,6 +17,14 @@ pub struct OpenThread {
 }
 // --8<-- [end:into_active_model]
 
+/// The body of `POST /threads/with-tools`: a thread and the tools it starts with.
+#[derive(Debug, Deserialize)]
+pub struct OpenWithTools {
+    pub agent_id: i32,
+    pub title: String,
+    pub tools: Vec<String>,
+}
+
 /// One item of the body of `POST /threads/{id}/records`.
 #[derive(Debug, Deserialize)]
 pub struct AppendRecord {

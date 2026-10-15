@@ -1,11 +1,12 @@
 //! The threads: opening, paging by key, appending records, forking, tools.
 
 use entity::prelude::{Thread, ThreadRecord, Tool};
+use entity::thread_record::Role;
 use entity::{thread, thread_record, thread_tool, tool};
 use turso_orm::prelude::*;
 
 use crate::dto::thread::{
-    AppendRecord, OpenThread, ThreadSummary, ThreadWithRecords, ThreadWithTools,
+    AppendRecord, OpenThread, OpenWithTools, ThreadSummary, ThreadWithRecords, ThreadWithTools,
 };
 
 /// Opens a thread from the request body.
@@ -100,6 +101,87 @@ pub async fn append_records(
     .await
 }
 // --8<-- [end:transaction]
+
+// --8<-- [start:begin_commit]
+/// Completes a thread: the status change and the closing record go through
+/// one explicit transaction, so that neither is visible without the other.
+pub async fn complete_thread(db: &Database, id: i32) -> Result<Option<thread::Model>, DbErr> {
+    let txn = db.begin().await?;
+    let Some(thread) = Thread::find_by_id(id).one(&txn).await? else {
+        return Ok(None);
+    };
+    let mut draft: thread::ActiveModel = thread.into();
+    draft.status = Set(thread::Status::Completed);
+    let completed = draft.update(&txn).await?;
+    let seq = ThreadRecord::find()
+        .filter(thread_record::Column::ThreadId.eq(id))
+        .count(&txn)
+        .await?;
+    thread_record::ActiveModel {
+        thread_id: Set(id),
+        seq: Set(i32::try_from(seq).unwrap_or(i32::MAX).saturating_add(1)),
+        role: Set(Role::System),
+        content: Set(Some("Thread completed.".to_owned())),
+        ..Default::default()
+    }
+    .insert(&txn)
+    .await?;
+    txn.commit().await?;
+    Ok(Some(completed))
+}
+// --8<-- [end:begin_commit]
+
+// --8<-- [start:savepoint]
+/// Opens a thread with its tools in one transaction. Each tool is created
+/// under a savepoint: when it already exists, the failed insert is undone
+/// by `ROLLBACK TO` and the existing tool is used, while the thread and the
+/// other tools stay in the outer transaction.
+pub async fn open_thread_with_tools(
+    db: &Database,
+    body: OpenWithTools,
+) -> Result<ThreadWithTools, DbErr> {
+    let txn = db.begin().await?;
+    let thread = thread::ActiveModel {
+        agent_id: Set(body.agent_id),
+        title: Set(body.title),
+        ..Default::default()
+    }
+    .insert(&txn)
+    .await?;
+    let mut tools = Vec::new();
+    for name in body.tools {
+        let sp = txn.begin().await?;
+        let draft = tool::ActiveModel {
+            name: Set(name.clone()),
+            ..Default::default()
+        };
+        let tool = match draft.insert(&sp).await {
+            Ok(created) => {
+                sp.commit().await?;
+                created
+            }
+            Err(err) if err.is_unique_violation() => {
+                sp.rollback().await?;
+                Tool::find()
+                    .filter(tool::Column::Name.eq(name))
+                    .one(&txn)
+                    .await?
+                    .ok_or_else(|| DbErr::RecordNotFound("tool".to_owned()))?
+            }
+            Err(err) => return Err(err),
+        };
+        thread_tool::ActiveModel {
+            thread_id: Set(thread.id),
+            tool_id: Set(tool.id),
+        }
+        .insert(&txn)
+        .await?;
+        tools.push(tool);
+    }
+    txn.commit().await?;
+    Ok(ThreadWithTools { thread, tools })
+}
+// --8<-- [end:savepoint]
 
 // --8<-- [start:self_reference]
 /// Opens a thread forked from another: the self-reference is a plain column.

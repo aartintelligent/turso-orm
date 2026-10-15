@@ -129,8 +129,11 @@ migrations (`migration/src/resource/`, one migration per table, seeds
 included) of the schema every example shares, an agent runtime; the other
 examples depend on it by `path`. `examples/basic` is a JSON API on axum in
 four layers, `dto`, `service`, `handler` and `router.rs`, with `error.rs`
-mapping `DbErr` to statuses; the documentation site includes its services,
-DTOs, error mapping and tests block by block.
+mapping `DbErr` to statuses, `settings.rs` reading `BASIC__*` environment
+variables over defaults in code, `db.rs` opening the database in the mode
+they name and `telemetry.rs` setting up tracing; the documentation site
+includes its services, DTOs, error mapping, connection and tests block by
+block.
 
 ## Development rules
 

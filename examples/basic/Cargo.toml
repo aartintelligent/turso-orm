@@ -10,9 +10,12 @@
 # One crate, four layers: `dto` describes what goes in and out as JSON,
 # `service` talks to the database through the ORM and knows nothing of HTTP,
 # `handler` binds the two under `router`, and `error` maps a `DbErr` to a
-# status. The documentation site includes the services, the DTOs, the error
-# mapping and a handler block by block; `tests/api.rs` drives the router in
-# memory and is what CI runs.
+# status. `settings` reads the configuration from defaults and environment
+# variables, `db` opens the database in the mode they name, `state` carries
+# the pool and the settings into the handlers, `telemetry` sets up tracing.
+# The documentation site includes the services, the DTOs, the error mapping,
+# a handler and the connection block by block; `tests/api.rs` drives the
+# router in memory and is what CI runs.
 # ------------------------------------------------------------------------------
 
 [workspace]
@@ -31,6 +34,9 @@ name = "basic"
 
 [dependencies]
 axum = "0.8"
+# The settings: a typed struct with defaults, overridden by `BASIC__*`
+# environment variables. No file formats, hence no default features.
+config = { version = "0.15", default-features = false }
 # The agent runtime schema shared by the examples, and its migrations.
 entity    = { path = "../common/entity" }
 migration = { path = "../common/migration" }
@@ -39,7 +45,13 @@ futures-util = "0.3"
 serde        = { version = "1", features = ["derive"] }
 serde_json   = "1"
 tokio        = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
-turso-orm    = { version = "0.1", path = "../../crates/turso-orm" }
+# One span per request, on top of the statement logs the driver emits.
+tower-http         = { version = "0.6", features = ["trace"] }
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# `sync` and `serverless` let the settings open a Turso Cloud replica or the
+# HTTP mode, next to the in-memory and file modes.
+turso-orm = { version = "0.1", path = "../../crates/turso-orm", features = ["sync", "serverless"] }
 
 [dev-dependencies]
 # `tests/api.rs` calls the router with `oneshot` and reads the bodies back.

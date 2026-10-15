@@ -41,12 +41,14 @@ use turso_orm::prelude::*;
 #[tokio::main]
 async fn main() -> Result<(), DbErr> {
     let db = Database::connect(ConnectOptions::in_memory()).await?;
+    // --8<-- [start:schema]
     db.execute(
         Schema::new()
             .create_table_from_entity(agent::Entity)
             .to_statement(),
     )
     .await?;
+    // --8<-- [end:schema]
 
     // --8<-- [start:query]
     // `id` stays `NotSet`, so the database assigns it and `insert` returns

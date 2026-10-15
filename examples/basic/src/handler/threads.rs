@@ -9,8 +9,8 @@ use turso_orm::prelude::*;
 
 use crate::dto::page::After;
 use crate::dto::thread::{
-    AppendRecord, Fork, OpenThread, Purge, ThreadSummary, ThreadWithRecords, ThreadWithTools,
-    UseTool,
+    AppendRecord, Fork, OpenThread, OpenWithTools, Purge, ThreadSummary, ThreadWithRecords,
+    ThreadWithTools, UseTool,
 };
 use crate::error::ApiError;
 use crate::service::threads;
@@ -39,6 +39,26 @@ pub async fn open_from_json(
 ) -> Result<(StatusCode, Json<thread::Model>), ApiError> {
     let opened = threads::open_thread_from_json(&db, body).await?;
     Ok((StatusCode::CREATED, Json(opened)))
+}
+
+/// `POST /threads/with-tools`.
+pub async fn open_with_tools(
+    State(db): State<Database>,
+    Json(body): Json<OpenWithTools>,
+) -> Result<(StatusCode, Json<ThreadWithTools>), ApiError> {
+    let opened = threads::open_thread_with_tools(&db, body).await?;
+    Ok((StatusCode::CREATED, Json(opened)))
+}
+
+/// `POST /threads/{id}/complete`.
+pub async fn complete(
+    State(db): State<Database>,
+    Path(id): Path<i32>,
+) -> Result<Json<thread::Model>, ApiError> {
+    threads::complete_thread(&db, id)
+        .await?
+        .map(Json)
+        .ok_or(ApiError::NotFound("thread"))
 }
 
 /// `DELETE /threads?prefix=`.
