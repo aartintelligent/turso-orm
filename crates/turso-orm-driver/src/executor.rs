@@ -458,7 +458,7 @@ impl Conn {
     ///
     /// Returns the engine error when the pragma is rejected.
     pub(crate) async fn pragma_update(&self, name: &str, value: &str) -> Result<()> {
-        tracing::debug!(name, value, "pragma_update");
+        tracing::debug!(name = %name, value = %value, "pragma_update");
         dispatch!(self, |c| engine::pragma_update(c, name, value).await)
     }
 
@@ -468,7 +468,7 @@ impl Conn {
     ///
     /// Returns the engine error when the statement fails.
     pub(crate) async fn execute_raw(&self, sql: &str) -> Result<()> {
-        tracing::debug!(sql, "execute_raw");
+        tracing::debug!(sql = %sql, "execute_raw");
         dispatch!(self, |c| engine::execute_raw(c, sql).await)
     }
 }
@@ -517,7 +517,7 @@ pub(crate) async fn execute(conn: &Conn, statement: Statement) -> Result<ExecRes
 ///
 /// Returns the engine error when any statement of the batch fails.
 pub(crate) async fn execute_unprepared(conn: &Conn, sql: &str) -> Result<ExecResult> {
-    tracing::debug!(sql, "execute_unprepared");
+    tracing::debug!(sql = %sql, "execute_unprepared");
     dispatch!(conn, |c| engine::execute_unprepared(c, sql).await)
 }
 
