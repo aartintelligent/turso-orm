@@ -153,6 +153,11 @@ impl Database {
         // Warm one connection so that misconfiguration fails fast; dropping
         // it parks it in the idle list for the first real borrower.
         drop(db.acquire().await?);
+        tracing::info!(
+            source = ?db.inner.options.source,
+            max_connections = db.inner.options.max_connections,
+            "database opened"
+        );
         Ok(db)
     }
 
@@ -185,7 +190,11 @@ impl Database {
     #[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
     pub async fn push(&self) -> Result<()> {
         match &self.inner.engine {
-            Engine::Sync(db) => Ok(db.push().await?),
+            Engine::Sync(db) => {
+                db.push().await?;
+                tracing::info!("replica pushed");
+                Ok(())
+            }
             _ => Err(Error::InvalidOptions("not an embedded replica".into())),
         }
     }
@@ -201,7 +210,11 @@ impl Database {
     #[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
     pub async fn pull(&self) -> Result<bool> {
         match &self.inner.engine {
-            Engine::Sync(db) => Ok(db.pull().await?),
+            Engine::Sync(db) => {
+                let changed = db.pull().await?;
+                tracing::info!(changed, "replica pulled");
+                Ok(changed)
+            }
             _ => Err(Error::InvalidOptions("not an embedded replica".into())),
         }
     }
@@ -243,10 +256,12 @@ impl Database {
             .lock()
             .map_err(|_| Error::Misuse("pool mutex poisoned".into()))?
             .pop();
+        let reused = idle.is_some();
         let conn = match idle {
             Some(conn) => conn,
             None => self.open_connection().await?,
         };
+        tracing::trace!(reused, "connection acquired");
         Ok(PooledConnection {
             conn: Some(conn),
             pool: Arc::clone(&self.inner),
@@ -289,6 +304,7 @@ impl Database {
         for (name, value) in &options.pragmas {
             conn.pragma_update(name, value).await?;
         }
+        tracing::debug!("connection opened");
         Ok(conn)
     }
 }
@@ -344,12 +360,17 @@ impl Drop for PooledConnection {
         // rollback — and must not be handed to the next borrower; dropping
         // it makes the engine roll back. An error from `is_autocommit` is
         // treated the same way, since the connection's state is unknown.
-        if let Some(conn) = self.conn.take()
-            && !self.discard.load(Ordering::Acquire)
+        let Some(conn) = self.conn.take() else {
+            return;
+        };
+        if !self.discard.load(Ordering::Acquire)
             && conn.is_autocommit().unwrap_or(false)
             && let Ok(mut idle) = self.pool.idle.lock()
         {
             idle.push(conn);
+            tracing::trace!("connection returned");
+        } else {
+            tracing::debug!("connection discarded");
         }
     }
 }

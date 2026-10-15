@@ -458,6 +458,7 @@ impl Conn {
     ///
     /// Returns the engine error when the pragma is rejected.
     pub(crate) async fn pragma_update(&self, name: &str, value: &str) -> Result<()> {
+        tracing::debug!(name, value, "pragma_update");
         dispatch!(self, |c| engine::pragma_update(c, name, value).await)
     }
 
@@ -467,6 +468,7 @@ impl Conn {
     ///
     /// Returns the engine error when the statement fails.
     pub(crate) async fn execute_raw(&self, sql: &str) -> Result<()> {
+        tracing::debug!(sql, "execute_raw");
         dispatch!(self, |c| engine::execute_raw(c, sql).await)
     }
 }
