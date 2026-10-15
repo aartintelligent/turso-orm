@@ -1,9 +1,10 @@
 //! The `llm_model` entity: served by a provider, configured on agents.
 
+use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
 
 /// A row of the `llm_model` table.
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[turso(table_name = "llm_model")]
 pub struct Model {
     /// Auto-incremented key.

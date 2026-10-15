@@ -93,15 +93,16 @@ commit if everything succeeded, roll back otherwise. `db.transaction`
 does that script for you:
 
 ```rust
---8<-- "examples/basic/src/mutation.rs:bulk_transaction"
+--8<-- "examples/basic/src/service/threads.rs:transaction"
 ```
 
 The closure receives `&Transaction` and returns a pinned, boxed future,
 hence the `Box::pin(async move { ... })` wrapper. If the future resolves
 to `Ok(value)`, the transaction is committed and `value` is returned; if
 it resolves to `Err(e)`, the transaction is rolled back and `e` is
-returned. The example above returns an error on purpose to show that the
-insert made inside the closure is gone afterwards.
+returned. The example above reads the next sequence number and inserts the
+records under it in one unit: a concurrent append cannot slip between the
+two, and a failed insert leaves the thread exactly as it was.
 
 The error type is yours to choose, as long as it can be built from the
 driver's error with `From`; `DbErr` qualifies, and so does an application

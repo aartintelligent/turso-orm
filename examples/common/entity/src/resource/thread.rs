@@ -1,23 +1,27 @@
 //! The `thread` entity: a conversation an agent owns, optionally reviewed by
 //! another agent and optionally forked from an earlier thread.
 
+use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
 
 // --8<-- [start:active_enum]
 /// The state of a thread, stored as text.
 ///
-/// Without `string_value`, a variant is stored as its `snake_case` name.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, DeriveActiveEnum)]
+/// Without `string_value`, a variant is stored as its `snake_case` name; the
+/// `serde` attribute keeps the JSON value equal to the stored one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveActiveEnum)]
+#[serde(rename_all = "snake_case")]
 #[turso(rs_type = "String")]
 pub enum Status {
     Open,
     #[turso(string_value = "done")]
+    #[serde(rename = "done")]
     Completed,
 }
 // --8<-- [end:active_enum]
 
 /// A row of the `thread` table.
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[turso(table_name = "thread")]
 pub struct Model {
     /// Auto-incremented key.

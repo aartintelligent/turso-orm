@@ -1,11 +1,18 @@
 # ------------------------------------------------------------------------------
-# basic — a standalone example exercising the entity API end to end.
+# basic — a JSON API on axum that exercises the entity API end to end.
 #
 # A separate workspace, so that the example resolves its own dependency graph
 # and the root workspace stays limited to the published crates. The entities
-# come from `examples/common`, shared by every example; the `path` dependency
-# on the ORM points at the in-repository crate and would be a plain version
-# in your own project.
+# and the migrations come from `examples/common`, shared by every example;
+# the `path` dependency on the ORM points at the in-repository crate and
+# would be a plain version in your own project.
+#
+# One crate, four layers: `dto` describes what goes in and out as JSON,
+# `service` talks to the database through the ORM and knows nothing of HTTP,
+# `handler` binds the two under `router`, and `error` maps a `DbErr` to a
+# status. The documentation site includes the services, the DTOs, the error
+# mapping and a handler block by block; `tests/api.rs` drives the router in
+# memory and is what CI runs.
 # ------------------------------------------------------------------------------
 
 [workspace]
@@ -17,12 +24,24 @@ edition      = "2024"
 rust-version = "1.94"
 publish      = false
 
+# The library is what the tests and the binary share; its short name is what
+# `tests/api.rs` imports.
+[lib]
+name = "basic"
+
 [dependencies]
-# The agent runtime schema shared by the examples.
-entity = { path = "../common/entity" }
-# Row streaming in `query.rs` goes through `TryStreamExt`.
+axum = "0.8"
+# The agent runtime schema shared by the examples, and its migrations.
+entity    = { path = "../common/entity" }
+migration = { path = "../common/migration" }
+# Row streaming in `service/agents.rs` goes through `TryStreamExt`.
 futures-util = "0.3"
-# The JSON columns (`capabilities`, `tool_calls`) use `serde_json::Value`.
-serde_json = "1"
-tokio      = { version = "1", features = ["macros", "rt-multi-thread"] }
-turso-orm  = { version = "0.1", path = "../../crates/turso-orm" }
+serde        = { version = "1", features = ["derive"] }
+serde_json   = "1"
+tokio        = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+turso-orm    = { version = "0.1", path = "../../crates/turso-orm" }
+
+[dev-dependencies]
+# `tests/api.rs` calls the router with `oneshot` and reads the bodies back.
+http-body-util = "0.1"
+tower          = { version = "0.5", features = ["util"] }

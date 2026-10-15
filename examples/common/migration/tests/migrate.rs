@@ -14,7 +14,7 @@ async fn up_seeds_the_catalog_and_down_reverts() {
         .expect("open");
     Migrator::up(&db, None).await.expect("up");
     let status = Migrator::status(&db).await.expect("status");
-    assert_eq!(status.len(), 4);
+    assert_eq!(status.len(), 9);
     assert!(status.iter().all(|s| s.applied));
 
     assert_eq!(LlmProvider::find().count(&db).await.expect("count"), 2);

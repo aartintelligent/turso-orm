@@ -2,10 +2,11 @@
 //! `belongs_to` towards each side, which is all a many-to-many relation
 //! needs.
 
+use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
 
 /// A row of the `thread_tool` table: one tool invoked in one thread.
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[turso(table_name = "thread_tool")]
 pub struct Model {
     #[turso(primary_key)]

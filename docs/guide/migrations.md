@@ -38,7 +38,7 @@ called `Migration` and the file name is the single source of truth for
 ordering:
 
 ```rust
---8<-- "examples/common/migration/src/m20240101_000002_create_agent_table.rs"
+--8<-- "examples/common/migration/src/resource/m20240101_000003_create_agent.rs"
 ```
 
 The naming convention is `m<yyyymmdd>_<seq>_<what>`: a date, a sequence
@@ -70,19 +70,20 @@ migration can also move or seed data, and it benefits from the same
 atomicity. The entity API works on it as on any connection:
 
 ```rust
---8<-- "examples/common/migration/src/m20240101_000004_seed_catalog.rs"
+--8<-- "examples/common/migration/src/resource/m20240101_000008_seed_llm_provider.rs"
 ```
 
-Two details are worth noting. The seed writes through the entities, so
-the column lists come from the models and cannot drift from the code. And
-`down` deletes exactly the providers `up` inserted, by name, and lets the
-cascade remove their models, rather than emptying the tables, which may
-hold user data by then.
+Two details are worth noting. The seed uses `insert_many` through the
+entity, so the column list comes from the model and cannot drift from the
+code. And `down` deletes exactly the rows `up` inserted, by name, rather
+than emptying the table, which may hold user data by then. The examples
+keep one migration per table, seeds included: the next one seeds the
+models of these providers, looking the providers up by name.
 
 !!! warning "A migration and the entity it uses can drift"
     A migration refers to the entity as it is *today*, but the migration
     describes the schema as it was *then*. If a later migration adds a
-    required column to `llm_model`, this seed would start failing on a fresh
+    required column to `llm_provider`, this seed would start failing on a fresh
     database. Data migrations through the entity are convenient early in a
     project; for a schema that keeps changing, prefer explicit SQL or a
     copy of the model frozen inside the migration module.
@@ -134,10 +135,11 @@ issues for a CI step or a status command to show.
 
 ## Running migrations
 
-The migrator is a library: how and when it runs is your decision. A
-service that owns its database calls `Migrator::up(&db, None)` at
-start-up, before it accepts requests. The migration crate the examples
-share also ships a small binary for operating by hand:
+The migrator is a library: how and when it runs is your decision. The
+basic example calls `Migrator::up(&db, None)` at start-up, before the
+server binds its port, which is right for a service that owns its
+database. The migration crate the examples share also ships a small
+binary for operating by hand:
 
 ```rust
 --8<-- "examples/common/migration/src/main.rs"
@@ -154,11 +156,12 @@ statements, so the first migration of a project can be written in terms
 of the entities:
 
 ```rust
---8<-- "examples/basic/src/main.rs:schema"
+--8<-- "examples/basic/tests/api.rs:schema"
 ```
 
-In a migration, each `to_statement()` would be executed through
-`manager.get_connection()`. From the second migration on, write the
+The basic example's tests use it to serve the API without the
+migrations. In a migration, each `to_statement()` would be executed
+through `manager.get_connection()`. From the second migration on, write the
 change explicitly: the entity now describes the target state, not the
 step from the previous one.
 

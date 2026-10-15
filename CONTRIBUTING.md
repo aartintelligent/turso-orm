@@ -85,7 +85,7 @@ single required status check. The `changes` job sizes each run:
 | Supply chain | `just deny` | Advisories, licences, bans and sources (`deny.toml`) |
 | Features | `just hack` | Every feature pair compiles on its own, except the engine pass-through features `fts`, `mimalloc` and `sync`, which hold no code of ours and are compiled together by the test and docs jobs |
 | MSRV | `just msrv` | The workspace compiles on `rust-version` |
-| Examples | `just examples` | Each example workspace is formatted, linted and tested; `basic` runs |
+| Examples | `just examples` | Each example workspace is formatted, linted and tested; the tests of `basic` drive its API in memory |
 | Site | `just docs-build` | The documentation site builds in strict mode: no broken link, no missing snippet |
 | Spelling | `typos` | Sources and docs (`typos.toml`) |
 | API | CI only | `cargo-semver-checks` flags breaking changes on pull requests |
@@ -124,9 +124,13 @@ The examples are separate workspaces, excluded from the root one so that
 their own dependencies never enter the library's dependency graph. They
 depend on the crates by `path`, which makes them a compile-time check of the
 public API: run `just examples` after changing one. `examples/common` holds
-the entities and the migrations of the schema every example shares, an
-agent runtime; the other examples depend on it by `path` too, and the
-documentation site includes its code block by block.
+the entities (`entity/src/resource/`, one module per table) and the
+migrations (`migration/src/resource/`, one migration per table, seeds
+included) of the schema every example shares, an agent runtime; the other
+examples depend on it by `path`. `examples/basic` is a JSON API on axum in
+four layers, `dto`, `service`, `handler` and `router.rs`, with `error.rs`
+mapping `DbErr` to statuses; the documentation site includes its services,
+DTOs, error mapping and tests block by block.
 
 ## Development rules
 

@@ -1,4 +1,4 @@
-//! Creates the `llm_provider` and `llm_model` tables, and the index on the model's provider.
+//! Creates the `llm_model` table.
 
 use turso_orm_migration::prelude::*;
 
@@ -9,16 +9,6 @@ pub struct Migration;
 #[async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager<'_>) -> Result<(), DbErr> {
-        manager
-            .create_table(
-                Table::create()
-                    .table("llm_provider")
-                    .if_not_exists()
-                    .col(ColumnDef::integer("id").primary_key().auto_increment())
-                    .col(ColumnDef::text("name").not_null().unique_key())
-                    .col(ColumnDef::text("base_url").not_null()),
-            )
-            .await?;
         manager
             .create_table(
                 Table::create()
@@ -47,9 +37,6 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager<'_>) -> Result<(), DbErr> {
-        manager.drop_table(Table::drop().table("llm_model")).await?;
-        manager
-            .drop_table(Table::drop().table("llm_provider"))
-            .await
+        manager.drop_table(Table::drop().table("llm_model")).await
     }
 }

@@ -14,15 +14,14 @@
 //!                                             thread 1--* thread, a fork and its parent
 //! ```
 //!
-//! Each entity is a module holding its `Model` and the items the derive
-//! generates from it; the prelude re-exports the entity types under short
-//! names for callers that only need `find`, `insert` and friends.
+//! Each entity is a module under `resource`, holding its `Model` and the
+//! items the derive generates from it, and re-exported here so that callers
+//! write `entity::thread`; the prelude re-exports the entity types under
+//! short names for callers that only need `find`, `insert` and friends. The
+//! models derive `Serialize` and `Deserialize`, so an API can hand them out
+//! and take them in as JSON directly.
 
-pub mod agent;
-pub mod llm_model;
-pub mod llm_provider;
 pub mod prelude;
-pub mod thread;
-pub mod thread_record;
-pub mod thread_tool;
-pub mod tool;
+pub mod resource;
+
+pub use resource::{agent, llm_model, llm_provider, thread, thread_record, thread_tool, tool};

@@ -1,74 +1,31 @@
-//! Basic example: the entity API end to end against an in-memory database.
+//! Starts the API: opens the database, applies the migrations and serves the router.
 //!
-//! `main` opens the database, creates the schema from the shared entities,
-//! then hands the connection to the mutation walkthrough (which seeds the
-//! catalog and the agents), to the thread seed, to the query walkthrough and
-//! to the relations walkthrough. Each step prints what it reads back.
+//! `DATABASE_URL` names a file; without it the database lives in memory for
+//! as long as the process runs.
 //!
 //! ```text
 //! cargo run
+//! DATABASE_URL=agents.db cargo run
 //! ```
 
-#![allow(clippy::print_stdout, reason = "examples are meant to print")]
+#![allow(clippy::print_stdout, reason = "a server reports where it listens")]
 
-mod mutation;
-mod query;
-mod relations;
-
-use entity::prelude::{Agent, LlmModel, LlmProvider, Thread, ThreadRecord, ThreadTool, Tool};
+use migration::{Migrator, MigratorTrait};
+use tokio::net::TcpListener;
 use turso_orm::prelude::*;
 
-/// Opens the database, builds the schema and runs the walkthroughs.
+/// Opens the database, migrates it and listens on `127.0.0.1:3000`.
 #[tokio::main]
-async fn main() -> Result<(), DbErr> {
-    let db = Database::connect(ConnectOptions::in_memory().foreign_keys(true)).await?;
-    create_schema(&db).await?;
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let options = match std::env::var("DATABASE_URL") {
+        Ok(url) => ConnectOptions::new(url),
+        Err(_) => ConnectOptions::in_memory(),
+    };
+    let db = Database::connect(options.foreign_keys(true)).await?;
+    Migrator::up(&db, None).await?;
 
-    println!("===== mutations =====\n");
-    mutation::all_about_mutation(&db).await?;
-
-    relations::seed(&db).await?;
-
-    println!("\n===== queries =====\n");
-    query::all_about_query(&db).await?;
-
-    println!("\n===== relations =====\n");
-    relations::all_about_relations(&db).await?;
-
+    let listener = TcpListener::bind("127.0.0.1:3000").await?;
+    println!("listening on http://{}", listener.local_addr()?);
+    axum::serve(listener, basic::app(db)).await?;
     Ok(())
 }
-
-// --8<-- [start:schema]
-/// Creates the seven tables and their indexes, in dependency order.
-///
-/// Foreign keys are derived from the `belongs_to` relations and the DDL is
-/// `STRICT`-compatible, so the generated statements are what a migration
-/// would contain.
-async fn create_schema(db: &Database) -> Result<(), DbErr> {
-    let schema = Schema::new();
-    for stmt in [
-        schema.create_table_from_entity(LlmProvider).to_statement(),
-        schema.create_table_from_entity(LlmModel).to_statement(),
-        schema.create_table_from_entity(Agent).to_statement(),
-        schema.create_table_from_entity(Thread).to_statement(),
-        schema.create_table_from_entity(ThreadRecord).to_statement(),
-        schema.create_table_from_entity(Tool).to_statement(),
-        schema.create_table_from_entity(ThreadTool).to_statement(),
-    ] {
-        println!("{}", stmt.sql);
-        db.execute(stmt).await?;
-    }
-    let indexes = schema
-        .create_index_from_entity(LlmModel)
-        .into_iter()
-        .chain(schema.create_index_from_entity(Thread))
-        .chain(schema.create_index_from_entity(ThreadRecord));
-    for idx in indexes {
-        let stmt = idx.to_statement();
-        println!("{}", stmt.sql);
-        db.execute(stmt).await?;
-    }
-    println!();
-    Ok(())
-}
-// --8<-- [end:schema]

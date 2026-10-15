@@ -37,7 +37,7 @@ docs/index.md                  front matter only (template: home.html); the land
 docs/overview/                 presentation pages, no code: why, features, use-cases, design, compatibility, roadmap
 docs/performance/              the Performance tab: `explain.md` (hand-written, how to read the tables) and one generated `turso-<version>.md` per engine version, written by `benches/src/bin/report.rs`, which also adds the nav entry under the `# report: versions` comment of zensical.toml; never edit the generated pages or that list by hand
 docs/guide/quickstart.md       quickstart; includes `crates/turso-orm/examples/quickstart.rs` (the `agent` entity alone)
-docs/guide/*.md                entities, queries (with error handling), relations, transactions, migrations; every block comes from `examples/common` (entity definitions, migrations) or `examples/basic` (the walkthrough functions)
+docs/guide/*.md                entities, queries (with error handling), relations, transactions, migrations; every block comes from `examples/common` (`entity/src/resource/*.rs`, `migration/src/resource/*.rs`) or `examples/basic` (`src/service/*.rs`, `src/dto/*.rs`, `src/error.rs`, `src/handler/agents.rs`, `tests/api.rs`)
 docs/project/                  about, contributing, community, license
 ```
 
@@ -65,7 +65,7 @@ In the page:
 
 ````markdown
 ```rust
---8<-- "examples/basic/src/query.rs:relations"
+--8<-- "examples/basic/src/service/agents.rs:relations"
 ```
 ````
 

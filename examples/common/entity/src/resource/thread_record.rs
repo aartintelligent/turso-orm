@@ -1,9 +1,11 @@
 //! The `thread_record` entity: one step of a thread, a prompt, an answer or a tool call.
 
+use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
 
 /// Who produced a record, stored as text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, DeriveActiveEnum)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveActiveEnum)]
+#[serde(rename_all = "snake_case")]
 #[turso(rs_type = "String")]
 pub enum Role {
     System,
@@ -13,7 +15,7 @@ pub enum Role {
 }
 
 /// A row of the `thread_record` table.
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[turso(table_name = "thread_record")]
 pub struct Model {
     /// Auto-incremented key.

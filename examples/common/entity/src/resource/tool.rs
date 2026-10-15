@@ -1,9 +1,10 @@
 //! The `tool` entity: a capability an agent can call, shared by many threads.
 
+use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
 
 /// A row of the `tool` table.
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[turso(table_name = "tool")]
 pub struct Model {
     /// Auto-incremented key.

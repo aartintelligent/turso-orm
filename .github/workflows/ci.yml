@@ -215,7 +215,7 @@ jobs:
       - run: cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps --exclude-features fts,mimalloc,sync
 
   # Guards the examples: each one is a separate workspace, formatted, linted
-  # and tested on its own; the console example must also run to completion.
+  # and tested on its own; the tests of `basic` drive its API in memory.
   examples:
     name: Examples
     needs: [changes]
@@ -240,7 +240,6 @@ jobs:
             cargo test --workspace --manifest-path "$manifest"
             echo "::endgroup::"
           done
-          cargo run --manifest-path examples/basic/Cargo.toml
 
   # Guards the supply chain: advisories, licences, bans and sources (deny.toml).
   deny:

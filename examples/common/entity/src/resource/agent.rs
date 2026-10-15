@@ -1,9 +1,10 @@
 //! The `agent` entity: a named configuration on a model, owning threads.
 
+use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
 
 /// A row of the `agent` table.
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[turso(table_name = "agent")]
 pub struct Model {
     /// Auto-incremented key.

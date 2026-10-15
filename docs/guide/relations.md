@@ -49,7 +49,7 @@ The owning side uses `belongs_to` and names its own column (`from`) and
 the column it references (`to`):
 
 ```rust
---8<-- "examples/common/entity/src/agent.rs"
+--8<-- "examples/common/entity/src/resource/agent.rs"
 ```
 
 The reverse side uses `has_many` or `has_one` and gives only the target
@@ -57,7 +57,7 @@ entity. The macro finds the matching `belongs_to` on that entity and
 reuses its columns, so the join condition is written once:
 
 ```rust
---8<-- "examples/common/entity/src/llm_provider.rs"
+--8<-- "examples/common/entity/src/resource/llm_provider.rs"
 ```
 
 | Attribute | On which side | Effect |
@@ -89,7 +89,7 @@ There are five ways, and they differ in how many queries run and in what
 shape the result takes. Pick by what you have in hand.
 
 ```rust
---8<-- "examples/basic/src/query.rs:relations"
+--8<-- "examples/basic/src/service/agents.rs:relations"
 ```
 
 ### From one model: `find_related`
@@ -138,15 +138,15 @@ loaders fetch everything in one `WHERE key IN (...)` query and hand the
 result back aligned with your input:
 
 ```rust
---8<-- "examples/basic/src/query.rs:loaders"
+--8<-- "examples/basic/src/service/catalog.rs:loaders"
 ```
 
 `load_many(Other, db)` returns `Vec<Vec<Other::Model>>`, one inner vector
 per input model, in the same order; `load_one(Other, db)` returns
 `Vec<Option<Other::Model>>`. Zipping the input with the result pairs them
 back without a lookup table. This is the tool for list endpoints: one
-query for the page of models, one for all their agents, whatever the page
-size.
+query for the page of models, one for all their providers, one for all
+their agents, whatever the page size.
 
 | Call | Queries | You have | You get |
 |---|---|---|---|
@@ -164,7 +164,7 @@ ordinary entity with a composite key and a `belongs_to` towards each
 side:
 
 ```rust
---8<-- "examples/common/entity/src/thread_tool.rs"
+--8<-- "examples/common/entity/src/resource/thread_tool.rs"
 ```
 
 Each side then declares a `has_many` to the other with `via` naming the
@@ -172,7 +172,7 @@ junction. Nothing else is written: the two hops are assembled from the
 junction's own `belongs_to` relations.
 
 ```rust
---8<-- "examples/common/entity/src/thread.rs:relations"
+--8<-- "examples/common/entity/src/resource/thread.rs:relations"
 ```
 
 Every way of reading across a relation follows the two hops on its own.
@@ -185,7 +185,7 @@ loader under a name that states the intent, and fails on a relation
 without a junction.
 
 ```rust
---8<-- "examples/basic/src/relations.rs:many_to_many"
+--8<-- "examples/basic/src/service/threads.rs:many_to_many"
 ```
 
 The `via` relation generates no foreign key of its own: the junction's
@@ -211,7 +211,7 @@ variants keep their definition, reachable through `Relation::X.def()`:
   under an alias that filters can name with `Expr::col(("alias", "column"))`.
 
 ```rust
---8<-- "examples/basic/src/relations.rs:self_reference"
+--8<-- "examples/basic/src/service/threads.rs:self_reference"
 ```
 
 When a join brings the base table in a second time, as a self-join does,
@@ -228,7 +228,7 @@ chain names the hops once, as a unit struct, and every hop is a relation
 definition you already have:
 
 ```rust
---8<-- "examples/basic/src/relations.rs:linked"
+--8<-- "examples/basic/src/service/agents.rs:linked"
 ```
 
 `model.find_linked(Chain)` returns a `Select` of the entity at the end of
@@ -239,7 +239,7 @@ the first and the last tables are selected, the ones in between serve the
 join. A table the chain visits twice is aliased as in a self-join.
 
 ```rust
---8<-- "examples/basic/src/relations.rs:find_linked"
+--8<-- "examples/basic/src/service/agents.rs:find_linked"
 ```
 
 The same two entities can be linked by several chains, each a struct of
@@ -249,12 +249,13 @@ owns" stay distinct paths rather than one ambiguous relation.
 ## Cascades and deletion
 
 Referential actions are run by the engine, not by the ORM, which means
-they also apply to writes made outside turso-orm. The basic example ends
-by deleting an agent: its threads go with it, and so do their records and
-their junction rows, in one cascade the engine runs on its own.
+they also apply to writes made outside turso-orm. The basic example's
+test suite deletes an agent through the API: its threads go with it, and
+so do their records and their junction rows, in one cascade the engine
+runs on its own.
 
 ```rust
---8<-- "examples/basic/src/relations.rs:cascade"
+--8<-- "examples/basic/tests/api.rs:cascade"
 ```
 
 If you need application logic at that point, a `before_delete` hook on

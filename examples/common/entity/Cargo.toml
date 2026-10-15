@@ -10,4 +10,6 @@ rust-version.workspace = true
 publish.workspace      = true
 
 [dependencies]
+# Models double as the JSON bodies and responses of an API.
+serde     = { version = "1", features = ["derive"] }
 turso-orm = { workspace = true }

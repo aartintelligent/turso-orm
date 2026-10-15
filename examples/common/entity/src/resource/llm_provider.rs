@@ -1,9 +1,10 @@
 //! The `llm_provider` entity: the root of the schema, serving models.
 
+use serde::{Deserialize, Serialize};
 use turso_orm::prelude::*;
 
 /// A row of the `llm_provider` table.
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, DeriveEntityModel)]
 #[turso(table_name = "llm_provider")]
 pub struct Model {
     /// Auto-incremented key.

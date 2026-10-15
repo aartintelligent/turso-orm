@@ -13,7 +13,7 @@ so that `llm_model::Entity`, `llm_model::Column`, `llm_model::ActiveModel`
 and `llm_model::Model` all live side by side under one name:
 
 ```rust
---8<-- "examples/common/entity/src/llm_model.rs"
+--8<-- "examples/common/entity/src/resource/llm_model.rs"
 ```
 
 What `DeriveEntityModel` produces from that struct:
@@ -108,7 +108,7 @@ a fieldless enum and makes it a column type in every sense: a model
 field, a value in a condition, a default in the DDL.
 
 ```rust
---8<-- "examples/common/entity/src/thread.rs:active_enum"
+--8<-- "examples/common/entity/src/resource/thread.rs:active_enum"
 ```
 
 | Attribute | Effect |
@@ -138,15 +138,15 @@ same fields, each wrapped in an `ActiveValue<T>` with three states.
 why `..Default::default()` is the idiom for "only these fields":
 
 ```rust
---8<-- "examples/basic/src/mutation.rs:insert_update"
+--8<-- "examples/basic/src/service/catalog.rs:insert_update"
 ```
 
-The first insert sends only `name` and `base_url`; `id` is `NotSet`,
+The insert sends only the fields of the request body; `id` is `NotSet`,
 so SQLite assigns a row id, and `RETURNING *` brings the full row back as
 a `Model`. The update shows the other direction: converting a `Model` into
 an `ActiveModel` with `.into()` marks every field `Unchanged`, so after
-`model.input_price = Set(0.5)` the `UPDATE` statement contains that
-single column and a `WHERE` on the primary key.
+`model.input_price = Set(input_price)` the `UPDATE` statement contains
+that single column and a `WHERE` on the primary key.
 
 ### Insert, update, save, delete
 
@@ -167,12 +167,14 @@ the fast path for bulk loads.
 exists yet:
 
 ```rust
---8<-- "examples/basic/src/mutation.rs:save_delete"
+--8<-- "examples/basic/src/service/agents.rs:save_delete"
 ```
 
-The first `save` inserts because `id` is `NotSet`. It returns an active
-model whose `id` is now `Unchanged(1)`, so the second `save`, after
-changing `name`, runs an `UPDATE` of that one column.
+Without an `id` in the body the draft's key is `NotSet` and `save`
+inserts. With one, the key is `Unchanged(id)` and `save` runs an `UPDATE`
+of the one `Set` column, `name`. Either way the result is an active model
+with every field `Unchanged`, which `try_into_model` turns back into the
+plain `Model` the API returns.
 
 ### Hooks
 
@@ -205,7 +207,7 @@ of the columns and leaves the rest to defaults. `DeriveIntoActiveModel`
 turns such a struct into the entity's active model field by field:
 
 ```rust
---8<-- "examples/basic/src/mutation.rs:into_active_model"
+--8<-- "examples/basic/src/dto/thread.rs:into_active_model"
 ```
 
 A plain field becomes `Set`. A field wrapped in one more `Option` than the
@@ -253,7 +255,7 @@ reads the column of the same name, the one given with `from_col`, or an
 expression given with `from_expr`:
 
 ```rust
---8<-- "examples/basic/src/query.rs:partial_model"
+--8<-- "examples/basic/src/dto/thread.rs:partial_model"
 ```
 
 `Entity::find().into_partial_model::<ThreadSummary>()` replaces the select

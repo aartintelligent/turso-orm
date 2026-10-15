@@ -96,15 +96,18 @@ counterpart the site includes snippets from.
 ## Examples
 
 `examples/*` are standalone Cargo workspaces (excluded from the root one via `exclude`), all on one
-schema, an agent runtime. `common` holds `entity` (`llm_provider` → `llm_model` → `agent` → `thread`
-→ `thread_record`, `tool` and the `thread_tool` junction; a thread may be forked from another and
-reviewed by a second agent) and `migration` (four migrations creating and seeding that schema, a tiny
-`up`/`down`/`status` CLI, a test). `basic` is a console crate on `common/entity` with `mutation.rs`,
-`query.rs` and `relations.rs`, one function per block the site includes, run end to end by
-`just examples` and CI. Entity names stay in snake_case (`llm_model`, not `model`: every entity module
-already has a `Model` struct). They depend on the ORM by `path`, so a library change must keep them
-compiling: run `just examples` after touching public API. A new example depends on `common` rather
-than redefining entities.
+schema, an agent runtime. `common` holds `entity` (`src/resource/`, one module per table:
+`llm_provider` → `llm_model` → `agent` → `thread` → `thread_record`, `tool` and the `thread_tool`
+junction; a thread may be forked from another and reviewed by a second agent; models derive `serde`)
+and `migration` (`src/resource/`, one migration per table plus two seeds, a tiny `up`/`down`/`status`
+CLI, a test). `basic` is a JSON API on axum over `common` in four layers: `dto/` (bodies, query
+parameters, responses, including the `DeriveIntoActiveModel`, `FromQueryResult` and
+`DerivePartialModel` types), `service/` (the ORM calls, no HTTP; the site's blocks), `handler/` (one
+short function per route) and `router.rs`; `error.rs` maps `DbErr` to statuses; `tests/api.rs` drives
+the router with `oneshot` in memory and is what CI runs, `cargo run` serves on 127.0.0.1:3000. Entity
+names stay in snake_case (`llm_model`, not `model`: every entity module already has a `Model` struct).
+They depend on the ORM by `path`, so a library change must keep them compiling: run `just examples`
+after touching public API. A new example depends on `common` rather than redefining entities.
 
 ## Benchmarks
 
