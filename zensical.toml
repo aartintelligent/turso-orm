@@ -48,6 +48,7 @@ nav = [
         { "Relations" = "guide/relations.md" },
         { "Transactions" = "guide/transactions.md" },
         { "Migrations" = "guide/migrations.md" },
+        { "Observability" = "guide/observability.md" },
     ] },
     { "Performance" = [
         { "Explain" = "performance/explain.md" },

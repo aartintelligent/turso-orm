@@ -5,7 +5,8 @@ connections, cheap to clone and safe to share between tasks. Where its data
 lives is the one decision an application makes about it. This page covers
 the four places it can live, the options of the pool, how an embedded
 replica exchanges data with Turso Cloud, what changes when every statement
-travels over HTTP, and what the driver reports through `tracing`.
+travels over HTTP. What the driver reports about all of this through
+`tracing` is on the [observability page](observability.md).
 
 ## Four modes
 
@@ -149,44 +150,3 @@ and a loop of small queries is worth turning into a join or a batch. And
 the busy timeout and MVCC are properties of a local engine: they are
 accepted and ignored. A database encrypted with a customer-managed key
 takes its key through `remote_encryption_key`.
-
-## Observability
-
-The driver emits `tracing` events under one target per module, so that a
-subscriber can follow one layer at a time or all of them together:
-
-| Target | Level | Events |
-|---|---|---|
-| `turso_orm_driver::database` | `info` | The database is opened, with its source and pool size; a replica is pushed or pulled, with whether the pull changed anything. |
-| `turso_orm_driver::database` | `debug` | A connection is opened or discarded. |
-| `turso_orm_driver::database` | `trace` | A connection is acquired or returned. |
-| `turso_orm_driver::transaction` | `debug` | A transaction or a savepoint begins, commits or rolls back, with its depth. |
-| `turso_orm_driver::transaction` | `warn` | A transaction is dropped without commit or rollback. |
-| `turso_orm_driver::executor` | `debug` | Every statement handed to the engine, including `BEGIN`, `COMMIT`, savepoints and pragmas. |
-| `turso_orm_migration` | `info` | A migration is applied or reverted. |
-
-The example installs a `tracing-subscriber` with a fixed filter: the
-application at `info`, the driver at `debug`, and the engine's own
-synchronisation log, which narrates every step of a pull at `info`, at
-`warn` only:
-
-```rust
---8<-- "examples/basic/src/telemetry.rs"
-```
-
-With that filter, appending two records to a thread reads like this, the
-transaction boundaries around the statements they wrap:
-
-```text
-DEBUG turso_orm_driver::executor: execute_raw sql=BEGIN DEFERRED
-DEBUG turso_orm_driver::transaction: transaction begun mode=Deferred
-DEBUG turso_orm_driver::executor: query_one sql=SELECT COUNT(*) AS "num_items" FROM "thread_record" WHERE "thread_record"."thread_id" = ?
-DEBUG turso_orm_driver::executor: query_all sql=INSERT INTO "thread_record" ("thread_id", "seq", "role", "content", "tool_calls") VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?) RETURNING *
-DEBUG turso_orm_driver::executor: execute_raw sql=COMMIT
-DEBUG turso_orm_driver::transaction: transaction committed depth=0
-```
-
-The events carry the SQL text, never the bound values, and the `Debug`
-form of the options replaces a token or a key with `<redacted>`, so a
-`Database` or a `ConnectOptions` written to a log shows where the data
-lives and nothing a reader could reuse.
