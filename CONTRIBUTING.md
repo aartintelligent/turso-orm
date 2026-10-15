@@ -196,24 +196,33 @@ House rules:
 
 `benches/` is a workspace member (package `benches`) that is never published. It holds the
 Criterion benchmarks, one file per topic (`select.rs`, `insert.rs`,
-`relations.rs`, `render.rs`), and `src/lib.rs` with the schema, the data set
-and the two in-memory databases they share. Every group runs the ORM next to
-the raw `turso` client doing the same work and decoding the same values, so
-a result reads as the cost of the ORM layer over the engine; `render.rs`
-times the SQL rendering alone, with no engine involved.
+`relations.rs`, `render.rs`), `src/lib.rs` with the schema, the data set
+and the two in-memory databases they share, and the `report` binary. Every
+group runs the ORM next to the raw `turso` client doing the same work and
+decoding the same values, so a result reads as the cost of the ORM layer
+over the engine; `render.rs` times the SQL rendering alone, with no engine
+involved.
 
 ```sh
 just bench                                        # every group; reports under target/criterion
 cargo bench -p benches --bench select   # one file
 just bench -- --save-baseline main                # on main, then on the branch:
 just bench -- --baseline main
+just bench-report                                 # every group, then the report for the locked turso
 ```
 
-CI compiles the benchmarks (`clippy --all-targets`, the MSRV check) and never
-times them: a shared runner is too noisy for a number to mean anything. Run
-them locally, on a quiet machine, before and after a change that touches the
-query builders, the writer or the decoders, and quote the comparison in the
-pull request.
+The benchmarks are not a CI gate and never run on a pull request: a shared
+runner is too noisy for a number to mean anything between two commits of
+this repository, and the ORM's own changes are judged with `--baseline`
+locally. What is recorded is the cost of the ORM over each version of the
+engine. `just bench-report` runs every group and writes the page
+`docs/performance/turso-<version>.md` for the `turso` version resolved in
+`Cargo.lock`, then lists it in the Performance section of `zensical.toml`;
+the same version overwrites its page, a new version adds one, and the pages
+are the history. The `Benchmarks` workflow does the same on a GitHub-hosted
+runner and opens a pull request with the result: start it by hand from the
+Actions tab after a `turso` upgrade. On that runner the absolute times are
+not comparable with a local run, the ORM-to-raw ratios are.
 
 ## Documentation
 

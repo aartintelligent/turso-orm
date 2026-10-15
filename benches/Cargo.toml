@@ -8,7 +8,9 @@
 # over the engine, not as absolute engine throughput. `src/lib.rs` holds the
 # schema, the data set and the two databases the groups share; each
 # `[[bench]]` file is one topic, and `harness = false` hands `main` to
-# Criterion.
+# Criterion. The `report` binary turns the last run into the Markdown fragment
+# that `docs/overview/performance.md` includes, one file per `turso` version
+# under `results/`.
 # ------------------------------------------------------------------------------
 
 [package]
@@ -37,10 +39,18 @@ doctest = false
 bench   = false
 
 [dependencies]
+# The `report` binary reads the JSON files Criterion writes.
+serde_json = { workspace = true }
 # The current-thread runtime the benchmarks drive the async calls on.
 tokio     = { workspace = true, features = ["rt"] }
 turso     = { workspace = true }
 turso-orm = { workspace = true, features = ["macros"] }
+
+# The report generator is a plain binary: neither a test nor a bench target.
+[[bin]]
+name  = "report"
+test  = false
+bench = false
 
 [dev-dependencies]
 criterion = { workspace = true }

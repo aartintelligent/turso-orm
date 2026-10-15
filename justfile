@@ -61,6 +61,13 @@ doc:
 bench *ARGS:
     cargo bench -p benches {{ARGS}}
 
+# Run every group from a clean slate, then write docs/performance/turso-<version>.md for the
+# locked `turso` version and list it in the Performance section of zensical.toml.
+bench-report:
+    rm -rf target/criterion
+    cargo bench -p benches
+    cargo run -p benches --bin report
+
 # ------------------------------------------------------------------------------
 # Supply chain & compatibility — dependency policy, feature combinations, MSRV.
 # ------------------------------------------------------------------------------

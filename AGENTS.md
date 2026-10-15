@@ -108,9 +108,17 @@ from release-plz) holding the Criterion benchmarks: `src/lib.rs` has the blog sc
 behind the ORM and one behind the raw `turso` client, since an in-memory database cannot be shared
 between two client objects. `select.rs`, `insert.rs`, `relations.rs` and `render.rs` are the
 `[[bench]]` targets (`harness = false`); every group has an `orm` and a `raw` function doing the same
-work, and `render.rs` compares the entity API with the bare `turso-sql` builder. CI compiles them
-(`clippy --all-targets`, MSRV) but never runs them; results are measured locally with
-`--save-baseline` / `--baseline`. Keep the two sides of a group equivalent when editing one.
+work, the raw side on `prepare_cached` like the driver, and `render.rs` compares the entity API with
+the bare `turso-sql` builder. Keep the two sides of a group equivalent when editing one.
+
+The benchmarks are never a CI gate: CI only compiles them (`clippy --all-targets`, MSRV). They
+measure the ORM over each `turso` version, not this repository's own changes. `src/bin/report.rs`
+reads `target/criterion` and writes the page `docs/performance/turso-<version>.md` (version from
+`Cargo.lock`), then inserts its nav entry under the `# report: versions` comment of the Performance
+section in `zensical.toml` when the version is new; `docs/performance/explain.md` is the hand-written
+introduction of that section. `just bench-report` runs it locally;
+`.github/workflows/bench.yml` (`workflow_dispatch`, started by hand after a `turso` upgrade) runs it on
+a runner and opens a `bench/turso-<version>` pull request with `RELEASE_PLZ_TOKEN`.
 
 ## Documentation site
 
