@@ -21,6 +21,8 @@
 //! traits in `crate::connection` and transactions in `crate::transaction`.
 //!
 //! - [`Database`]: the cloneable handle;
+//! - `ReplicaStats`: what an embedded replica reports about itself, behind
+//!   the `sync` feature;
 //! - [`PooledConnection`]: a checked-out connection that returns itself on
 //!   drop;
 //! - [`retry_busy`]: the backoff loop used where a busy error is expected.
@@ -79,6 +81,64 @@ impl fmt::Debug for Database {
             .field("source", &self.inner.options.source)
             .field("max_connections", &self.inner.options.max_connections)
             .finish_non_exhaustive()
+    }
+}
+
+/// What an embedded replica reports about itself, read with
+/// [`Database::stats`].
+///
+/// The replica keeps two logs next to its file: the write-ahead log that
+/// every local write appends to, and a revert log holding what undoes the
+/// changes not yet pushed. Both grow until a push followed by a checkpoint,
+/// which is what `wal_bytes` and `revert_wal_bytes` let an application
+/// watch.
+#[cfg(feature = "sync")]
+#[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ReplicaStats {
+    /// Local changes not yet sent by a push. Exact right after a push, which
+    /// brings it to zero; a pull resets the baseline it is counted from, so
+    /// after a pull it counts every local change since that pull, pushed or
+    /// not. Read it before a push to know what the push will carry.
+    pub pending_operations: i64,
+    /// The size in bytes of the write-ahead log, which a checkpoint empties.
+    /// Zero when the replica follows the cloud through its logical log
+    /// rather than through frames, which the engine chooses on its own.
+    pub wal_bytes: u64,
+    /// The size in bytes of the revert log, which holds what undoes the
+    /// changes not yet pushed.
+    pub revert_wal_bytes: u64,
+    /// When the replica last pulled, in seconds since the Unix epoch;
+    /// `None` before the first pull.
+    pub last_pull_unix_time: Option<i64>,
+    /// When the replica last pushed, in seconds since the Unix epoch;
+    /// `None` before the first push.
+    pub last_push_unix_time: Option<i64>,
+    /// The revision of the cloud database the replica is at, as the server
+    /// names it; `None` before the first exchange.
+    pub revision: Option<String>,
+    /// Bytes sent to the cloud since the replica was opened.
+    pub network_sent_bytes: u64,
+    /// Bytes received from the cloud since the replica was opened.
+    pub network_received_bytes: u64,
+}
+
+#[cfg(feature = "sync")]
+impl ReplicaStats {
+    /// Copies the engine's statistics into the crate's own type, so that the
+    /// public API never names the synchronisation engine's.
+    fn from_engine(stats: turso::sync::DatabaseSyncStats) -> Self {
+        Self {
+            pending_operations: stats.cdc_operations,
+            wal_bytes: stats.main_wal_size,
+            revert_wal_bytes: stats.revert_wal_size,
+            last_pull_unix_time: stats.last_pull_unix_time,
+            last_push_unix_time: stats.last_push_unix_time,
+            revision: stats.revision,
+            network_sent_bytes: u64::try_from(stats.network_sent_bytes).unwrap_or(u64::MAX),
+            network_received_bytes: u64::try_from(stats.network_received_bytes).unwrap_or(u64::MAX),
+        }
     }
 }
 
@@ -213,6 +273,49 @@ impl Database {
         let changed = db.pull().await?;
         tracing::info!(changed, "replica pulled");
         Ok(changed)
+    }
+
+    /// Folds the replica's write-ahead log into its file — embedded replica
+    /// only.
+    ///
+    /// Local writes accumulate in the log until a checkpoint, so a
+    /// long-running replica calls this after a successful
+    /// [`push`](Self::push) to keep its files bounded.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidOptions`] when this database is not a
+    /// replica, and [`Error::Turso`] when the checkpoint fails.
+    #[cfg(feature = "sync")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
+    pub async fn checkpoint(&self) -> Result<()> {
+        let Engine::Sync(db) = &self.inner.engine else {
+            return Err(Error::InvalidOptions("not an embedded replica".into()));
+        };
+        db.checkpoint().await?;
+        tracing::info!("replica checkpointed");
+        Ok(())
+    }
+
+    /// What the replica reports about itself — embedded replica only.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidOptions`] when this database is not a
+    /// replica, and [`Error::Turso`] when the engine cannot read its state.
+    #[cfg(feature = "sync")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
+    pub async fn stats(&self) -> Result<ReplicaStats> {
+        let Engine::Sync(db) = &self.inner.engine else {
+            return Err(Error::InvalidOptions("not an embedded replica".into()));
+        };
+        let stats = ReplicaStats::from_engine(db.stats().await?);
+        tracing::debug!(
+            pending = stats.pending_operations,
+            wal_bytes = stats.wal_bytes,
+            "replica stats read"
+        );
+        Ok(stats)
     }
 
     /// Takes a connection from the pool, opening a new one if none is idle.
