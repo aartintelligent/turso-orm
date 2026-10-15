@@ -28,39 +28,73 @@ the handlers, and `telemetry.rs` sets up tracing.
 cargo run
 ```
 
-The settings are defaults in code, overridden by `BASIC__*` environment
-variables with `__` between levels; no file is read.
+The migrations run at start-up, then the server listens on
+`127.0.0.1:3000`, one tracing span per request and every SQL statement at
+`debug`. The catalog is seeded by the migrations: two providers, two
+models.
+
+The database is the only thing to configure. The defaults live in
+`src/settings.rs`; `DATABASE__*` environment variables override them, and
+no file is read.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BASIC__DATABASE__MODE` | `memory` | `memory`, `file`, `sync` (a Turso Cloud replica) or `remote` (Turso Cloud over HTTP) |
-| `BASIC__DATABASE__PATH` | `basic.db` | The file, for `file` and `sync` |
-| `BASIC__DATABASE__URL` | | The Turso Cloud URL, for `sync` and `remote` |
-| `BASIC__DATABASE__AUTH_TOKEN` | | The Turso Cloud token, for `sync` and `remote` |
-| `BASIC__DATABASE__FOREIGN_KEYS` | `true` | Whether the engine enforces foreign keys |
-| `BASIC__DATABASE__MAX_CONNECTIONS` | `8` | The size of the pool |
-| `BASIC__SERVER__ADDR` | `127.0.0.1:3000` | The address to bind |
-| `BASIC__LOG__FILTER` | `info,turso_orm_driver=debug` | The tracing filter; the driver logs every statement at `debug` |
+| `DATABASE__MODE` | `memory` | `memory`, `file`, `sync` (a Turso Cloud replica) or `remote` (Turso Cloud over HTTP) |
+| `DATABASE__PATH` | `basic.db` | The file, for `file` and `sync` |
+| `DATABASE__URL` | | The Turso Cloud URL, for `sync` and `remote` |
+| `DATABASE__AUTH_TOKEN` | | The Turso Cloud token, for `sync` and `remote` |
+| `DATABASE__FOREIGN_KEYS` | `true` | Whether the engine enforces foreign keys |
+| `DATABASE__MAX_CONNECTIONS` | `8` | The size of the pool |
+
+For example, to keep the data in a file:
 
 ```sh
-BASIC__DATABASE__MODE=file BASIC__DATABASE__PATH=agents.db cargo run
-BASIC__DATABASE__MODE=remote BASIC__DATABASE__URL=libsql://<db>.turso.io BASIC__DATABASE__AUTH_TOKEN=... cargo run
+DATABASE__MODE=file DATABASE__PATH=agents.db cargo run
 ```
 
-The migrations run at start-up, then the server listens on the configured
-address, one tracing span per request. A few requests to try, the catalog
-being seeded by the migrations:
+## Try it
+
+With the server running, one request at a time.
+
+List the seeded models whose name contains `mini`:
 
 ```sh
-curl -s localhost:3000/models?name=mini
-curl -s -X POST localhost:3000/agents -H 'content-type: application/json' \
+curl localhost:3000/models?name=mini
+```
+
+Create an agent on the first model; the response is the stored row with
+its id:
+
+```sh
+curl -X POST localhost:3000/agents \
+  -H 'content-type: application/json' \
   -d '{"name":"planner","model_id":1}'
-curl -s -X POST localhost:3000/threads -H 'content-type: application/json' \
-  -d '{"agent_id":1,"title":"Plan the launch"}'
-curl -s -X POST localhost:3000/threads/1/records -H 'content-type: application/json' \
-  -d '[{"role":"user","content":"Plan the launch."},{"role":"assistant","content":"Three steps."}]'
-curl -s localhost:3000/threads/1
 ```
+
+Open a thread for that agent:
+
+```sh
+curl -X POST localhost:3000/threads \
+  -H 'content-type: application/json' \
+  -d '{"agent_id":1,"title":"Plan the launch"}'
+```
+
+Append two records to the thread, numbered after the last one in one
+transaction:
+
+```sh
+curl -X POST localhost:3000/threads/1/records \
+  -H 'content-type: application/json' \
+  -d '[{"role":"user","content":"Plan the launch."},{"role":"assistant","content":"Three steps."}]'
+```
+
+Read the thread back with its records:
+
+```sh
+curl localhost:3000/threads/1
+```
+
+Every route is listed in `src/router.rs`.
 
 ## Test it
 

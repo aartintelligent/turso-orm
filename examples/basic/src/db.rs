@@ -2,14 +2,14 @@
 
 use turso_orm::prelude::*;
 
-use crate::settings::{DatabaseSettings, Mode};
+use crate::settings::{Mode, Settings};
 
 // --8<-- [start:connect]
 /// Opens the database the settings describe: four modes, one `ConnectOptions` each.
 ///
 /// The entities, the queries, the transactions and the migrations are the
 /// same in every mode; only this function knows where the data lives.
-pub async fn connect(settings: &DatabaseSettings) -> Result<Database, DbErr> {
+pub async fn connect(settings: &Settings) -> Result<Database, DbErr> {
     let options = match settings.mode {
         Mode::Memory => ConnectOptions::in_memory(),
         Mode::File => ConnectOptions::new(&settings.path),

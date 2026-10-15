@@ -10,9 +10,10 @@
 # One crate, four layers: `dto` describes what goes in and out as JSON,
 # `service` talks to the database through the ORM and knows nothing of HTTP,
 # `handler` binds the two under `router`, and `error` maps a `DbErr` to a
-# status. `settings` reads the configuration from defaults and environment
-# variables, `db` opens the database in the mode they name, `state` carries
-# the pool and the settings into the handlers, `telemetry` sets up tracing.
+# status. `settings` reads the database configuration from defaults and
+# environment variables, `db` opens the database in the mode they name,
+# `state` carries the pool and the settings into the handlers, `telemetry`
+# sets up tracing.
 # The documentation site includes the services, the DTOs, the error mapping,
 # a handler and the connection block by block; `tests/api.rs` drives the
 # router in memory and is what CI runs.
@@ -34,8 +35,9 @@ name = "basic"
 
 [dependencies]
 axum = "0.8"
-# The settings: a typed struct with defaults, overridden by `BASIC__*`
-# environment variables. No file formats, hence no default features.
+# The database settings: a typed struct with defaults, overridden by
+# `DATABASE__*` environment variables. No file formats, hence no default
+# features.
 config = { version = "0.15", default-features = false }
 # The agent runtime schema shared by the examples, and its migrations.
 entity    = { path = "../common/entity" }

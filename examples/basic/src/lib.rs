@@ -3,9 +3,9 @@
 //! `dto` describes what goes in and out as JSON, `service` talks to the
 //! database through the ORM and knows nothing of HTTP, `handler` binds the
 //! two, `router` lists every route, and `error` maps a `DbErr` to a status.
-//! Around them, `settings` reads the configuration, `db` opens the database
-//! in the mode it names, `state` carries the pool and the settings into the
-//! handlers, and `telemetry` sets up tracing. The documentation site
+//! Around them, `settings` reads the database configuration, `db` opens the
+//! database in the mode it names, `state` carries the pool and the settings
+//! into the handlers, and `telemetry` sets up tracing. The documentation site
 //! includes the services, the DTOs, the error mapping, a handler and the
 //! connection block by block.
 

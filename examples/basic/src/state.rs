@@ -15,7 +15,7 @@ use crate::settings::Settings;
 pub struct AppState {
     /// The pool.
     pub db: Database,
-    /// The settings the process started with.
+    /// The database settings the process started with.
     pub settings: Arc<Settings>,
 }
 

@@ -1,9 +1,10 @@
-//! The settings: defaults in code, overridden by `BASIC__*` environment variables.
+//! The database settings: defaults in code, overridden by `DATABASE__*` environment variables.
 //!
 //! `Settings::default()` is the only source of truth for the defaults; the
-//! environment layers on top of it, with `__` between levels, so that
-//! `BASIC__DATABASE__MODE=sync` or `BASIC__SERVER__ADDR=0.0.0.0:8080` is
-//! all a deployment needs to say. No file is read.
+//! environment layers on top of it, so that `DATABASE__MODE=sync` with
+//! `DATABASE__URL` and `DATABASE__AUTH_TOKEN` is all a deployment needs to
+//! say. No file is read. Where the server listens and what tracing shows
+//! are not settings: they are constants of `main.rs` and `telemetry.rs`.
 
 use config::{Config, ConfigError, Environment};
 use serde::{Deserialize, Serialize};
@@ -24,7 +25,7 @@ pub enum Mode {
 
 /// How to open the database.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct DatabaseSettings {
+pub struct Settings {
     /// The mode.
     pub mode: Mode,
     /// The file, for the `file` and `sync` modes.
@@ -39,56 +40,26 @@ pub struct DatabaseSettings {
     pub max_connections: usize,
 }
 
-/// Where the server listens.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ServerSettings {
-    /// The address to bind.
-    pub addr: String,
-}
-
-/// What tracing shows.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LogSettings {
-    /// An `EnvFilter` directive, such as `info` or `turso_orm_driver=debug`.
-    pub filter: String,
-}
-
-/// Every setting of the application.
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Settings {
-    pub database: DatabaseSettings,
-    pub server: ServerSettings,
-    pub log: LogSettings,
-}
-
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            database: DatabaseSettings {
-                mode: Mode::Memory,
-                path: "basic.db".to_owned(),
-                url: String::new(),
-                auth_token: String::new(),
-                foreign_keys: true,
-                max_connections: 8,
-            },
-            server: ServerSettings {
-                addr: "127.0.0.1:3000".to_owned(),
-            },
-            log: LogSettings {
-                filter: "info,turso_orm_driver=debug".to_owned(),
-            },
+            mode: Mode::Memory,
+            path: "basic.db".to_owned(),
+            url: String::new(),
+            auth_token: String::new(),
+            foreign_keys: true,
+            max_connections: 8,
         }
     }
 }
 
 impl Settings {
-    /// The defaults, overridden by the `BASIC__*` environment variables.
+    /// The defaults, overridden by the `DATABASE__*` environment variables.
     pub fn load() -> Result<Self, ConfigError> {
         Config::builder()
             .add_source(Config::try_from(&Self::default())?)
             .add_source(
-                Environment::with_prefix("BASIC")
+                Environment::with_prefix("DATABASE")
                     .separator("__")
                     .try_parsing(true),
             )

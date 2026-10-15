@@ -1,14 +1,14 @@
-//! Sets up tracing from the log settings.
+//! Sets up tracing.
 
 use tracing_subscriber::EnvFilter;
 
-use crate::settings::LogSettings;
+/// What tracing shows: the application at `info`, and every statement the
+/// driver runs at `debug`. Not a setting: change it here.
+const FILTER: &str = "info,turso_orm_driver=debug";
 
-/// Installs the global subscriber with the filter of the settings.
-///
-/// A directive that does not parse falls back to `info`, so a typo in the
-/// environment never keeps the server from starting.
-pub fn init(settings: &LogSettings) {
-    let filter = EnvFilter::try_new(&settings.filter).unwrap_or_else(|_| EnvFilter::new("info"));
-    tracing_subscriber::fmt().with_env_filter(filter).init();
+/// Installs the global subscriber.
+pub fn init() {
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new(FILTER))
+        .init();
 }
