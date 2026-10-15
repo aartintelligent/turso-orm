@@ -76,9 +76,10 @@ bench-report:
 deny:
     cargo deny check
 
-# Check that every feature combination compiles.
+# Check that every feature pair compiles on its own; the engine pass-through features
+# (`fts`, `mimalloc`, `sync`) are left out, see the `features` job of ci.yml.
 hack:
-    cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps
+    cargo hack check --workspace --feature-powerset --depth 2 --no-dev-deps --exclude-features fts,mimalloc,sync
 
 # Verify the crates build on the MSRV declared in Cargo.toml.
 msrv:
