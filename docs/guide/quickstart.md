@@ -36,9 +36,9 @@ database in one function:
 
 `Database` is a pool of engine connections, cheap to clone and safe to
 share. Entities, queries, transactions and migrations are the same in all
-four modes; only this function changes. Tokens, encryption and the other
-options are on the [compatibility page](../overview/compatibility.md#turso),
-transactions under [Transactions](transactions.md).
+four modes; only this function changes. The pool's options, how a replica
+pushes and pulls, what changes over HTTP and what the driver traces are on
+the [database page](database.md).
 
 ## Describe a table
 

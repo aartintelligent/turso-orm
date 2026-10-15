@@ -19,7 +19,8 @@ on any platform.
 | Turso Cloud, over HTTP | `ConnectOptions::remote(url).auth_token(token)` | `serverless` |
 
 The same entities, queries, transactions and migrations work against all
-four; only the connection options change.
+four; only the connection options change. The [database page](../guide/database.md)
+of the guide details each mode, the pool and the replica flow.
 
 Behaviour of the engine that an application should know about, such as the
 single active writer per connection or the pragmas behind `BEGIN
