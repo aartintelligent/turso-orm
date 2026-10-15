@@ -1,7 +1,9 @@
 {#-
   Home page template: a full-viewport hero with the text above the code
   window in a column centred on the page, over the animated schema that
-  `home.js` draws on the canvas. Without JavaScript the canvas stays empty
+  `home.js` draws on the canvas. The button row ends with the `turso`
+  version from `extra.turso_version`, plain information in the note's gray;
+  the `report` binary of `benches/` keeps the value current. Without JavaScript the canvas stays empty
   and the hero is the text and the code window on the plain Bunker
   background. It follows the theme's own layout: the hero goes in the `hero`
   block, which the base template places inside the container before the
@@ -57,6 +59,7 @@
           <a href="{{ 'guide/quickstart/' | url }}" class="md-button">
             Quickstart
           </a>
+          <span class="tx-hero__version">Built on turso {{ config.extra.turso_version }}</span>
         </div>
       </div>
     </div>
