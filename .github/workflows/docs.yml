@@ -1,6 +1,6 @@
 # ------------------------------------------------------------------------------
-# Docs — builds the Zensical site on every pull request and publishes it to
-# GitHub Pages on every push to `main`.
+# Docs — builds the Zensical site on every pull request and in the merge
+# queue, and publishes it to GitHub Pages on every push to `main`.
 #
 # The build is strict and starts from a clean cache (Zensical advises against
 # caching its build state on CI), so a broken link or a missing snippet fails
@@ -15,6 +15,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  merge_group:
 
 permissions:
   contents: read

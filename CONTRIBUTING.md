@@ -270,9 +270,10 @@ disable the hooks; `git commit --no-verify` is for genuine emergencies only.
 - Branch off `main` for every change: `feat/<slug>`, `fix/<slug>`,
   `docs/<slug>`, `chore/<slug>`.
 - Keep branches focused and short-lived; rebase on `main` rather than
-  merging it back in. When GitHub asks to update the branch before merging,
-  pick "Update with rebase" from the button's menu: the default merge creates
-  a commit the commit lint rejects.
+  merging it back in. A branch never needs to be brought up to date by hand
+  before merging: `main` has a merge queue, which tests every pull request on
+  top of the current `main` before it lands. If you do update a branch, use
+  "Update with rebase": a merge commit is rejected by the commit lint.
 - `release-plz` maintains its own `release-plz-*` branch and pull request;
   never edit it by hand.
 
@@ -335,8 +336,11 @@ keep both in sync with this table.
    message the release tooling reads.
 3. Fill the template: what changes and why, the issue it closes, and any
    breaking change or new public API.
-4. Get a review from a code owner, then merge; keep the history
-   conventional-clean.
+4. Get a review from a code owner, then click "Merge when ready": the merge
+   queue squashes the pull request on top of the current `main`, runs the
+   full CI on that state (`ci.yml` treats a merge group as a complete run)
+   and merges it when green, without any manual update of the branch. Keep
+   the history conventional-clean.
 
 ## Releasing
 

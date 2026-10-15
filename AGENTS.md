@@ -42,7 +42,8 @@ Five crates, each depending only on the ones below:
   `down` defaults to failing with `DbErr::Migration`.
 
 `CONTRIBUTING.md` is the source of truth for the workflow (gates, hooks, branches, commits, pull
-requests) and holds the notes for AI agents; this file covers architecture and conventions.
+requests) and holds the notes for AI agents; this file covers architecture and conventions. `main`
+has a merge queue: a pull request is merged with "Merge when ready", never updated by hand first.
 
 ## Working mode and attribution
 
