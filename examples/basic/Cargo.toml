@@ -3,22 +3,19 @@
 #
 # A separate workspace, so that the example resolves its own dependency graph
 # and the root workspace stays limited to the published crates. The `path`
-# dependencies on the ORM point at the in-repository crates and would be
+# dependencies on the ORM point at the in-repository crates; they would be
 # plain versions in your own project.
 #
-# One crate. `entity` holds the schema, one module per table, and
-# `migration` the migrations that create and seed it, with the `migrate`
-# binary to run them by hand. Then four layers: `dto` describes what goes in
-# and out as JSON,
-# `service` talks to the database through the ORM and knows nothing of HTTP,
-# `handler` binds the two under `router`, and `error` maps a `DbErr` to a
-# status. `settings` reads the database configuration from defaults and
-# environment variables, `db` opens the database in the mode they name,
-# `state` carries the pool and the settings into the handlers, `telemetry`
-# sets up tracing.
-# The documentation site includes the services, the DTOs, the error mapping,
-# a handler and the connection block by block; `tests/api.rs` drives the
-# router in memory and is what CI runs.
+# One crate: `entity` holds the schema, one module per table, and `migration`
+# its history with the `migrate` binary to run it by hand. Then four layers:
+# `dto` describes what goes in and out as JSON, `service` talks to the
+# database through the ORM and knows nothing of HTTP, `handler` binds the two
+# under `router`, and `error` maps a `DbErr` to a status. Around them,
+# `settings` reads the database configuration, `db` opens the database in
+# the mode it names, `state` carries the pool into the handlers, `telemetry`
+# sets up tracing. The documentation site includes the sources block by
+# block; `tests/` drives the router and the migrations in memory and is what
+# CI runs.
 # ------------------------------------------------------------------------------
 
 [workspace]
@@ -30,32 +27,59 @@ edition      = "2024"
 rust-version = "1.94"
 publish      = false
 
-# The library is what the tests and the binary share; its short name is what
-# `tests/api.rs` imports.
+# The library is what the tests and the two binaries share; its short name is
+# what `tests/*.rs` and `src/bin/migrate.rs` import.
 [lib]
 name = "basic"
 
+# ------------------------------------------------------------------------------
+# Dependencies — the ORM, the web framework and what the layers around them
+# need. Each entry says what it is for and why its feature set is what it is.
+# ------------------------------------------------------------------------------
+
 [dependencies]
-axum = "0.8"
-# The database settings: a typed struct with defaults, overridden by
-# `DATABASE__*` environment variables. No file formats, hence no default
-# features.
-config = { version = "0.15", default-features = false }
-# Row streaming in `service/agents.rs` goes through `TryStreamExt`.
-futures-util = "0.3"
-serde        = { version = "1", features = ["derive"] }
-serde_json   = "1"
-tokio        = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
-# One span per request, on top of the statement logs the driver emits.
-tower-http         = { version = "0.6", features = ["trace"] }
-tracing            = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-# `sync` and `serverless` let the settings open a Turso Cloud replica or the
-# HTTP mode, next to the in-memory and file modes.
-turso-orm           = { version = "0.1", path = "../../crates/turso-orm", features = ["sync", "serverless"] }
+# The ORM. `sync` and `serverless` let `db.rs` open a Turso Cloud replica or
+# the HTTP mode, next to the in-memory and file modes.
+turso-orm = { version = "0.1", path = "../../crates/turso-orm", features = ["sync", "serverless"] }
+
+# The migrator and the schema builders behind `migration/` and `migrate`.
 turso-orm-migration = { version = "0.1", path = "../../crates/turso-orm-migration" }
 
+# The web framework: the router, the extractors and the JSON responses.
+axum = "0.8"
+
+# The async runtime: `macros` for `#[tokio::main]` and `#[tokio::test]`,
+# `rt-multi-thread` for the server, `net` for the listener.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }
+
+# The database settings of `settings.rs`: defaults in code, overridden by the
+# `DATABASE__*` environment variables. No file is read, hence no format
+# feature.
+config = { version = "0.15", default-features = false }
+
+# JSON in and out: the DTOs and the models derive `Serialize` and
+# `Deserialize`; `serde_json::Value` is the JSON column type and the raw body
+# of `POST /threads/json`.
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Row streaming in `service/agents.rs` goes through `TryStreamExt`.
+futures-util = "0.3"
+
+# Tracing: the subscriber of `telemetry.rs` with its `EnvFilter`, and one
+# span per request from `tower-http`, on top of the statement logs the
+# driver emits.
+tracing            = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tower-http         = { version = "0.6", features = ["trace"] }
+
+# ------------------------------------------------------------------------------
+# Test dependencies — what `tests/api.rs` needs to call the router in memory.
+# ------------------------------------------------------------------------------
+
 [dev-dependencies]
-# `tests/api.rs` calls the router with `oneshot` and reads the bodies back.
+# `oneshot` sends one request through the router without a listener.
+tower = { version = "0.5", features = ["util"] }
+
+# Collects a response body into bytes.
 http-body-util = "0.1"
-tower          = { version = "0.5", features = ["util"] }
