@@ -22,7 +22,7 @@ use std::pin::Pin;
 use async_trait::async_trait;
 use turso_sql::Statement;
 
-use crate::database::Database;
+use crate::database::{Database, retry_busy, retry_on_replica};
 use crate::error::Result;
 use crate::executor::{self, Conn, ExecResult, Row, RowStream};
 use crate::transaction::{Transaction, TransactionMode};
@@ -138,22 +138,38 @@ pub trait TransactionTrait: Send + Sync {
 impl ConnectionTrait for Database {
     async fn execute(&self, statement: Statement) -> Result<ExecResult> {
         let conn = self.acquire().await?;
-        executor::execute(&conn, statement).await
+        retry_on_replica!(
+            conn.options(),
+            statement,
+            executor::execute(&conn, statement)
+        )
     }
 
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult> {
         let conn = self.acquire().await?;
-        executor::execute_unprepared(&conn, sql).await
+        retry_on_replica!(
+            conn.options(),
+            sql,
+            executor::execute_unprepared(&conn, sql)
+        )
     }
 
     async fn query_one(&self, statement: Statement) -> Result<Option<Row>> {
         let conn = self.acquire().await?;
-        executor::query_one(&conn, statement).await
+        retry_on_replica!(
+            conn.options(),
+            statement,
+            executor::query_one(&conn, statement)
+        )
     }
 
     async fn query_all(&self, statement: Statement) -> Result<Vec<Row>> {
         let conn = self.acquire().await?;
-        executor::query_all(&conn, statement).await
+        retry_on_replica!(
+            conn.options(),
+            statement,
+            executor::query_all(&conn, statement)
+        )
     }
 }
 
@@ -170,7 +186,15 @@ impl StreamTrait for Database {
             // stream as the holder, returning the slot to the pool when the
             // stream is dropped.
             let raw: Conn = (*conn).clone();
-            executor::stream(&raw, statement, conn).await
+            // Only the start of the stream is retried: once rows flow, a
+            // busy error is yielded as an item like any other.
+            if let Some(budget) = conn.options().replica_retry_budget() {
+                let stream =
+                    retry_busy(budget, || executor::stream(&raw, statement.clone(), ())).await?;
+                Ok(executor::hold(stream, conn))
+            } else {
+                executor::stream(&raw, statement, conn).await
+            }
         })
     }
 }

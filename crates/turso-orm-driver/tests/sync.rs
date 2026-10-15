@@ -14,7 +14,7 @@
 
 #![cfg(all(feature = "sync", feature = "serverless"))]
 
-use turso_orm_driver::{ConnectOptions, ConnectionTrait, Database, Statement};
+use turso_orm_driver::{ConnectOptions, ConnectionTrait, Database, Statement, TransactionTrait};
 
 /// Reads the credentials from the environment, or `None` to skip.
 fn credentials() -> Option<(String, String)> {
@@ -91,6 +91,119 @@ async fn replica_pushes_and_pulls() {
     // A plain database has no replica to synchronise or to report on.
     assert!(remote.push().await.is_err());
     assert!(remote.stats().await.is_err());
+
+    // The replica's engine refuses a second connection, a pragma and a write
+    // while a transaction holds the write lock; the pool waits for the busy
+    // timeout instead of surfacing that, so a writer next to an open
+    // transaction succeeds once the transaction ends.
+    let txn = replica.begin().await.expect("begin");
+    txn.execute_unprepared(&format!("INSERT INTO {table} (name) VALUES ('carol')"))
+        .await
+        .expect("insert in txn");
+    let writer = {
+        let replica = replica.clone();
+        let table = table.clone();
+        tokio::spawn(async move {
+            replica
+                .execute_unprepared(&format!("INSERT INTO {table} (name) VALUES ('dave')"))
+                .await
+        })
+    };
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    txn.commit().await.expect("commit");
+    writer
+        .await
+        .expect("join")
+        .expect("the writer waited for the lock");
+    assert_eq!(count(&replica, &table).await, 4);
+
+    // The rows are pushed before the table goes: a pull that brings a `DROP
+    // TABLE` while the replica still holds unpushed rows of that table fails
+    // inside the engine with a syntax error.
+    replica.push().await.expect("push before the drop");
+    remote
+        .execute_unprepared(&format!("DROP TABLE {table}"))
+        .await
+        .expect("drop");
+    replica.pull().await.expect("pull the drop");
+}
+
+/// The background task pushes and pulls on its own: a local write reaches the cloud after a
+/// round, a round can be forced, a second task on the same database is refused, and the shutdown
+/// pushes one last time.
+#[tokio::test]
+async fn replica_sync_runs_rounds() {
+    use std::time::Duration;
+
+    use turso_orm_driver::{Checkpoint, ReplicaSync, SyncPolicy};
+
+    let Some((url, token)) = credentials() else {
+        eprintln!("TURSO_DATABASE_URL and TURSO_AUTH_TOKEN not set; skipping");
+        return;
+    };
+    let dir = tempfile::tempdir().expect("tempdir");
+    let replica = Database::connect(
+        ConnectOptions::sync(dir.path().join("replica.db"), url.clone()).auth_token(token.clone()),
+    )
+    .await
+    .expect("connect replica");
+    let remote = Database::connect(ConnectOptions::remote(url).auth_token(token))
+        .await
+        .expect("connect remote");
+    let table = format!("t_orm_sync_task_{}", std::process::id());
+    replica
+        .execute_unprepared(&format!(
+            "CREATE TABLE {table} (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
+        ))
+        .await
+        .expect("create");
+
+    let policy = SyncPolicy::new()
+        .interval(Duration::from_secs(1))
+        .checkpoint(Checkpoint::AfterPush);
+    let sync = ReplicaSync::spawn(replica.clone(), policy).expect("spawn");
+    assert!(matches!(
+        ReplicaSync::spawn(replica.clone(), SyncPolicy::new()),
+        Err(turso_orm_driver::Error::Misuse(_))
+    ));
+
+    // The first round comes on its own after one interval and carries the
+    // table and the row to the cloud.
+    replica
+        .execute_unprepared(&format!("INSERT INTO {table} (name) VALUES ('alice')"))
+        .await
+        .expect("insert locally");
+    let mut rounds = sync.subscribe();
+    tokio::time::timeout(Duration::from_secs(10), rounds.changed())
+        .await
+        .expect("a round within ten seconds")
+        .expect("the task is alive");
+    let status = sync.status();
+    assert_eq!(status.rounds, 1, "{status:?}");
+    assert_eq!(status.consecutive_failures, 0, "{status:?}");
+    assert!(status.checkpointed, "{status:?}");
+    assert!(status.stats.is_some(), "{status:?}");
+    assert_eq!(count(&remote, &table).await, 1);
+
+    // A forced round brings a remote write down at once.
+    remote
+        .execute_unprepared(&format!("INSERT INTO {table} (name) VALUES ('bob')"))
+        .await
+        .expect("insert remotely");
+    let status = sync.trigger().await.expect("trigger");
+    assert!(status.pulled, "{status:?}");
+    assert_eq!(count(&replica, &table).await, 2);
+
+    // The shutdown pushes what the loop had not sent yet, and frees the slot
+    // for another task.
+    replica
+        .execute_unprepared(&format!("INSERT INTO {table} (name) VALUES ('carol')"))
+        .await
+        .expect("insert before shutdown");
+    sync.shutdown().await.expect("shutdown");
+    assert_eq!(count(&remote, &table).await, 3);
+    let again = ReplicaSync::spawn(replica.clone(), SyncPolicy::new()).expect("spawn again");
+    drop(again);
 
     remote
         .execute_unprepared(&format!("DROP TABLE {table}"))

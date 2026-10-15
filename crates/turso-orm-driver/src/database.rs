@@ -41,6 +41,31 @@ use crate::executor::Conn;
 use crate::options::{ConnectOptions, Source};
 use turso_sql::Statement;
 
+/// Runs a statement through the executor, retrying it for the busy timeout
+/// when the pool is an embedded replica.
+///
+/// `$statement` is the owned statement the call consumes; on a replica it
+/// is cloned for each attempt, on any other engine it is moved into the
+/// single call so that the hot path copies nothing. A statement that found
+/// the database busy did nothing, so running it again is safe inside a
+/// transaction as well as outside one.
+macro_rules! retry_on_replica {
+    ($options:expr, $statement:ident, $call:expr) => {
+        match $options.replica_retry_budget() {
+            None => $call.await,
+            Some(budget) => {
+                let $statement = &$statement;
+                retry_busy(budget, || {
+                    let $statement = $statement.clone();
+                    $call
+                })
+                .await
+            }
+        }
+    };
+}
+pub(crate) use retry_on_replica;
+
 /// The engine handle behind the pool.
 enum Engine {
     /// A local file or in-memory database.
@@ -64,6 +89,10 @@ pub(crate) struct Inner {
     /// One permit per pool slot, whether the slot's connection is idle or
     /// not yet opened.
     permits: Arc<Semaphore>,
+    /// Whether a `ReplicaSync` task runs on this database; a second one
+    /// would push and pull the same file against the first.
+    #[cfg(feature = "sync")]
+    sync_task: AtomicBool,
 }
 
 /// A Turso database with a pool of connections.
@@ -208,6 +237,8 @@ impl Database {
                 permits: Arc::new(Semaphore::new(options.max_connections)),
                 idle: Mutex::new(Vec::with_capacity(options.max_connections)),
                 options,
+                #[cfg(feature = "sync")]
+                sync_task: AtomicBool::new(false),
             }),
         };
         // Warm one connection so that misconfiguration fails fast; dropping
@@ -224,6 +255,35 @@ impl Database {
     /// The options this database was opened with.
     pub fn options(&self) -> &ConnectOptions {
         &self.inner.options
+    }
+
+    /// The busy budget of the replica operations: the pool's busy timeout,
+    /// zero when it is `None`.
+    #[cfg(feature = "sync")]
+    fn replica_budget(&self) -> Duration {
+        self.inner.options.busy_timeout.unwrap_or_default()
+    }
+
+    /// Whether this database is an embedded replica.
+    #[cfg(feature = "sync")]
+    pub(crate) fn is_replica(&self) -> bool {
+        matches!(self.inner.engine, Engine::Sync(_))
+    }
+
+    /// Marks the database as driven by a `ReplicaSync`; `false` when one
+    /// already is.
+    #[cfg(feature = "sync")]
+    pub(crate) fn claim_sync_task(&self) -> bool {
+        self.inner
+            .sync_task
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_ok()
+    }
+
+    /// Lets another `ReplicaSync` be spawned once the current one is gone.
+    #[cfg(feature = "sync")]
+    pub(crate) fn release_sync_task(&self) {
+        self.inner.sync_task.store(false, Ordering::Release);
     }
 
     /// Checks that the database answers queries.
@@ -252,7 +312,7 @@ impl Database {
         let Engine::Sync(db) = &self.inner.engine else {
             return Err(Error::InvalidOptions("not an embedded replica".into()));
         };
-        db.push().await?;
+        retry_busy(self.replica_budget(), || async { Ok(db.push().await?) }).await?;
         tracing::info!("replica pushed");
         Ok(())
     }
@@ -270,7 +330,7 @@ impl Database {
         let Engine::Sync(db) = &self.inner.engine else {
             return Err(Error::InvalidOptions("not an embedded replica".into()));
         };
-        let changed = db.pull().await?;
+        let changed = retry_busy(self.replica_budget(), || async { Ok(db.pull().await?) }).await?;
         tracing::info!(changed, "replica pulled");
         Ok(changed)
     }
@@ -292,7 +352,10 @@ impl Database {
         let Engine::Sync(db) = &self.inner.engine else {
             return Err(Error::InvalidOptions("not an embedded replica".into()));
         };
-        db.checkpoint().await?;
+        retry_busy(self.replica_budget(), || async {
+            Ok(db.checkpoint().await?)
+        })
+        .await?;
         tracing::info!("replica checkpointed");
         Ok(())
     }
@@ -381,17 +444,36 @@ impl Database {
     /// Returns [`Error::Turso`] when the engine cannot open the connection
     /// or rejects one of the settings.
     async fn open_connection(&self) -> Result<Conn> {
+        let options = &self.inner.options;
         let conn = match &self.inner.engine {
             Engine::Local(db) => Conn::Embedded(db.connect()?),
+            // A replica's engine refuses to open a connection, and to apply a
+            // pragma, while another connection holds the write lock, so both
+            // steps are retried for the busy timeout like a statement.
             #[cfg(feature = "sync")]
-            Engine::Sync(db) => Conn::Embedded(db.connect().await?),
+            Engine::Sync(db) => Conn::Embedded(
+                retry_busy(self.replica_budget(), || async { Ok(db.connect().await?) }).await?,
+            ),
             #[cfg(feature = "serverless")]
             Engine::Remote(db) => Conn::Remote(db.connect()?),
         };
-        let options = &self.inner.options;
         if let Some(timeout) = options.busy_timeout {
             conn.busy_timeout(timeout)?;
         }
+        match options.replica_retry_budget() {
+            None => Self::configure(&conn, options).await?,
+            Some(budget) => retry_busy(budget, || Self::configure(&conn, options)).await?,
+        }
+        tracing::debug!("connection opened");
+        Ok(conn)
+    }
+
+    /// Applies the pragmas of the options to a fresh connection.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Turso`] when the engine rejects one of them.
+    async fn configure(conn: &Conn, options: &ConnectOptions) -> Result<()> {
         if options.foreign_keys {
             conn.pragma_update("foreign_keys", "ON").await?;
         }
@@ -403,8 +485,7 @@ impl Database {
         for (name, value) in &options.pragmas {
             conn.pragma_update(name, value).await?;
         }
-        tracing::debug!("connection opened");
-        Ok(conn)
+        Ok(())
     }
 }
 

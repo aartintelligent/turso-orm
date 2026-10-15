@@ -40,7 +40,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures_util::Stream;
+use futures_util::{Stream, StreamExt};
 use turso_sql::{Statement, Value};
 
 use crate::decode::FromValue;
@@ -538,4 +538,17 @@ pub(crate) async fn stream<'a, H: Send + 'a>(
 ) -> Result<RowStream<'a>> {
     tracing::debug!(sql = %statement.sql, "stream");
     dispatch!(conn, |c| engine::stream(c, statement, holder).await)
+}
+
+/// Attaches `holder` to a stream started without one, so that it is dropped
+/// with the stream.
+///
+/// Used when the start of a stream is retried: the holder cannot be moved
+/// into each attempt, so the stream is started bare and the holder joins it
+/// once an attempt succeeds.
+pub(crate) fn hold<'a, H: Send + 'a>(stream: RowStream<'a>, holder: H) -> RowStream<'a> {
+    Box::pin(futures_util::stream::unfold(
+        (stream, holder),
+        |(mut stream, holder)| async move { stream.next().await.map(|item| (item, (stream, holder))) },
+    ))
 }

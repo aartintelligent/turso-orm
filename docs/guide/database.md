@@ -47,7 +47,7 @@ it back, so nothing leaks into the next borrower.
 |---|---|---|
 | `max_connections(n)` | 8 | The number of slots. The engine serialises work on one connection, so this is also the number of statements in flight. |
 | `acquire_timeout(d)` | 30 s | How long a borrower waits for a free slot before `DbErr::Driver` with a pool timeout. |
-| `busy_timeout(d)` | 5 s | How long the engine waits for a lock held by another connection, and how long the driver retries a `BEGIN IMMEDIATE` under contention. `None` disables both. |
+| `busy_timeout(d)` | 5 s | How long the engine waits for a lock held by another connection, and how long the driver retries a `BEGIN IMMEDIATE` under contention. On an embedded replica, how long the driver retries any statement, since that engine does not wait. `None` disables both. |
 | `foreign_keys(bool)` | on | Whether the engine enforces foreign keys, cascades included. |
 | `mvcc(bool)` | off | `PRAGMA journal_mode = 'mvcc'`, the prerequisite of `BEGIN CONCURRENT`. Local engine only. |
 | `pragma(name, value)` | | Any other pragma, applied to every connection in order. |
@@ -79,52 +79,81 @@ pool:
 | `checkpoint()` | Folds the replica's write-ahead log into its file. |
 | `stats()` | What the replica knows about itself: changes waiting to be pushed, the size of its logs, the last push and pull, the revision it is at, the bytes exchanged. |
 
-Push and pull are the pair an application calls most, usually together:
+Calling them by hand is the simplest arrangement: push after each batch of
+writes, pull before a read that must be fresh. For a process that runs for
+long, the driver offers `ReplicaSync`, an optional task that does the
+rounds on a schedule: every interval it pushes, pulls, checkpoints as its
+`SyncPolicy` says and reads the stats, one round at a time, logging a
+failed round at `warn` and waiting longer before the next until one
+succeeds. Nothing starts without it being asked, and the four operations
+stay callable next to it. The example starts it from its settings in the
+`sync` mode:
 
 ```rust
---8<-- "examples/basic/src/service/sync.rs:push_pull"
+--8<-- "examples/basic/src/service/sync.rs:start"
 ```
 
-The example exposes the four as one resource, `/sync`, refused in the
-other modes since a plain database has no replica:
+The handle is the only hold on the task: dropping it stops the loop at
+once, `shutdown` pushes one last time before stopping, which is what the
+example does when `Ctrl-C` ends the server:
+
+```rust
+--8<-- "examples/basic/src/main.rs:main"
+```
+
+The routes drive the task rather than the pool. `POST /sync` forces a
+round, serialised with the task's own, and `GET /sync/stats` returns what
+the last round saw without touching the engine, both refused in the other
+modes since a plain database has no replica:
 
 ```rust
 --8<-- "examples/basic/src/handler/sync.rs:sync"
 ```
 
-`POST /sync/checkpoint` and `GET /sync/stats` sit behind the two other
-functions of the same service:
+`POST /sync/checkpoint` keeps one primitive callable by hand, outside the
+task's rhythm:
 
 ```rust
---8<-- "examples/basic/src/service/sync.rs:checkpoint_stats"
+--8<-- "examples/basic/src/service/sync.rs:checkpoint"
 ```
 
-When to call them is the application's business. A service that owns its
-data pushes after each batch of writes, or on a timer; one that shares the
-database pulls before a read that must be fresh. The connection function
-above pulls once when the replica is opened, so that a file reopened after
-a while serves what the cloud holds now and not what it held at the last
-run.
+The connection function above pulls once when the replica is opened, so
+that a file reopened after a while serves what the cloud holds now and not
+what it held at the last run, before the first round is due.
 
 The checkpoint matters to a replica that runs for long. Next to its file,
 the replica keeps two logs: the write-ahead log every local write appends
 to, and a revert log holding what undoes the changes not yet pushed. Both
 grow until a push followed by a checkpoint, so the natural place for
-`checkpoint` is right after a successful `push`. The stats make those
-decisions measurable: a pending count that keeps growing between pushes
+`checkpoint` is right after a successful `push`, which is the task's
+default policy. The stats make those decisions measurable: a pending count that keeps growing between pushes
 means they are failing, a write-ahead log past a threshold calls for a
 checkpoint, and the time of the last pull says how stale the replica may
 be.
 
-Two readings of the stats deserve a word, both observed against Turso
-Cloud with the pinned engine. The pending count is exact right after a
-push, which brings it to zero, but a pull resets the baseline it is counted
-from: after the example's push-then-pull it counts every local change since
-that pull, pushed or not, so read it before a push to learn what the push
-will carry. And a replica that follows the cloud through its logical log,
-which the engine chooses on its own, keeps the two sizes at zero and makes
-the checkpoint a no-op; the operations stay correct, they just have nothing
-to do.
+A replica and a local file differ in one more way, which the driver hides.
+The local engine waits for a lock held by another connection, for
+`busy_timeout`; the replica's engine does not: while one connection holds a
+write transaction, opening another connection, a pragma, a statement and a
+`pull` all fail at once with `database is busy`. On a replica the driver
+therefore does the waiting itself, retrying each of those with a backoff
+for the same `busy_timeout`, so that a second writer next to an open
+transaction behaves as it would on a file: it waits, then succeeds. A
+`busy_timeout` of `None` keeps the engine's behaviour, one attempt and a
+busy error, which `is_busy` identifies.
+
+Three observations against Turso Cloud with the pinned engine deserve a
+word. The pending count is exact right after a push, which brings it to
+zero, but a pull resets the baseline it is counted from: after the
+example's push-then-pull it counts every local change since that pull,
+pushed or not, so read it before a push to learn what the push will carry.
+A replica that follows the cloud through its logical log, which the engine
+chooses on its own, keeps the two sizes at zero and makes the checkpoint a
+no-op; the operations stay correct, they just have nothing to do. And a
+pull that brings down a `DROP TABLE` while the replica still holds unpushed
+rows of that table fails inside the engine with a syntax error: push before
+a schema change another writer may make, or make schema changes from one
+place.
 
 !!! note "Two clients, one database"
 
@@ -133,7 +162,9 @@ to do.
     end-to-end test in `crates/turso-orm-driver/tests/sync.rs` exercises
     exactly that: a row written in the replica reaches the HTTP side after
     `push`, a row written over HTTP reaches the replica after `pull`, and
-    the stats count the pending change before the push and none after.
+    the stats count the pending change before the push and none after. A
+    second test drives a `ReplicaSync` through a round, a forced one and a
+    shutdown.
 
 ## Over HTTP
 

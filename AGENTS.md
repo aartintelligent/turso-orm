@@ -107,7 +107,9 @@ calls, no HTTP; the site's blocks), `handler/` (one short function per route) an
 in code and `DATABASE__*` environment overrides (no file; the listen address and the log filter are
 constants), `db.rs` opens the four modes (`memory`, `file`, `sync`, `remote`, hence the `sync` and
 `serverless` features on its `turso-orm`), `state.rs` is the `AppState` with
-`FromRef<AppState> for Database`, `telemetry.rs` the tracing setup; `tests/api.rs` drives the router
+`FromRef<AppState> for Database` and, in the `sync` mode, the `ReplicaSync` task that `main` starts
+through `service::sync::start` and shuts down after the server (the `/sync` routes drive it;
+`DATABASE__SYNC_INTERVAL` sets its rhythm), `telemetry.rs` the tracing setup; `tests/api.rs` drives the router
 with `oneshot` in memory, `tests/migrations.rs` applies and reverts the migrations, both are what CI
 runs; `cargo run` serves on 127.0.0.1:7407. Entity names stay in snake_case (`llm_model`, not `model`:
 every entity module already has a `Model` struct). The example depends on the ORM by `path`, so a
@@ -236,7 +238,11 @@ deliberately excludes the `clock` feature so `Local` never enters the API.
   columns sit behind `ConnectOptions::experimental`. Over HTTP (`ConnectOptions::remote`) the busy
   timeout and MVCC do not apply. An embedded replica (`ConnectOptions::sync`) reads and writes its
   local file only: nothing reaches the cloud until `Database::push` and nothing arrives until
-  `Database::pull`, the engine never synchronises on its own. The end-to-end tests in
+  `Database::pull`, the engine never synchronises on its own. Its engine also ignores the busy
+  timeout: while one connection holds a write transaction, opening another connection, a pragma, a
+  statement and a `pull` all fail at once with `database is busy`, so the driver retries each of
+  them for `busy_timeout` on a replica (`retry_on_replica!`, `Database::replica_budget`) and
+  classifies that message as `ErrorKind::Busy`. The end-to-end tests in
   `crates/turso-orm-driver/tests/remote.rs` and `tests/sync.rs` need `TURSO_DATABASE_URL` and
   `TURSO_AUTH_TOKEN` (a database token, not an API token) and skip without them.
 - Conventional Commits drive `release-plz`; all crates share one version (`version_group`), and

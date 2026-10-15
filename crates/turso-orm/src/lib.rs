@@ -99,7 +99,7 @@ pub mod __private {
 }
 #[cfg(feature = "sync")]
 #[cfg_attr(docsrs, doc(cfg(feature = "sync")))]
-pub use turso_orm_driver::ReplicaStats;
+pub use turso_orm_driver::{Checkpoint, ReplicaStats, ReplicaSync, SyncPolicy, SyncStatus};
 pub use turso_orm_driver::{
     ConnectOptions, ConnectionTrait, Database, ExecResult, Row, StreamTrait, Transaction,
     TransactionMode, TransactionTrait,

@@ -203,18 +203,24 @@ impl From<turso_serverless::Error> for Error {
     }
 }
 
-/// Whether a generic engine error reports an MVCC conflict, which a retry
-/// of the whole transaction can resolve.
+/// Whether a generic engine error reports a condition a retry can resolve:
+/// an MVCC conflict, or a lock the engine did not wait for.
 ///
-/// The engine words them `Write-write conflict`, `Conflict: …` and
+/// The engine words conflicts `Write-write conflict`, `Conflict: …` and
 /// `Database schema conflict`. Matching those phrases rather than the bare
 /// word keeps deterministic errors that merely mention a conflict, such as
 /// a parse error about `ON CONFLICT` clauses, out of the retryable kind.
+/// An embedded replica reports a held write lock as a generic error too,
+/// `database tape error: database is busy` on a statement and `database
+/// error: Database is busy` on a pull, instead of the `Busy` variant a
+/// local file produces.
 fn is_conflict(msg: &str) -> bool {
     let lower = msg.to_ascii_lowercase();
     lower.contains("write-write conflict")
         || lower.starts_with("conflict:")
         || lower.contains("schema conflict")
+        || lower.contains("database is busy")
+        || lower.contains("database is locked")
 }
 
 /// Classifies a constraint violation from the engine's message, which is
@@ -252,14 +258,16 @@ mod tests {
         assert_eq!(e.kind(), ErrorKind::Other);
     }
 
-    /// Each conflict message of the engine is busy, while a parse error that
-    /// mentions `ON CONFLICT` is not.
+    /// Each conflict message of the engine is busy, as is a replica's held lock reported as a
+    /// generic error, while a parse error that mentions `ON CONFLICT` is not.
     #[test]
     fn classifies_conflicts_by_phrase() {
         for msg in [
             "Write-write conflict",
             "Conflict: row 3 was modified",
             "Database schema conflict",
+            "sync engine operation failed: database tape error: database is busy",
+            "sync engine operation failed: database error: Database is busy",
         ] {
             let e: Error = turso::Error::Error(msg.into()).into();
             assert!(e.is_busy(), "{msg}");

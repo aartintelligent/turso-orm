@@ -1,36 +1,41 @@
 //! Keeping an embedded replica in step with Turso Cloud.
 //!
 //! A replica writes to its local file only: nothing leaves the machine until
-//! `push`, and nothing arrives until `pull`. The driver exposes those two,
-//! plus the checkpoint of the replica's log and its statistics, on the pool;
-//! this module is the one place the example calls them.
+//! a push, and nothing arrives until a pull. The example leaves the rhythm
+//! to the driver's `ReplicaSync` task, started here from the settings, and
+//! keeps the checkpoint callable by hand.
 
-use turso_orm::ReplicaStats;
+use std::time::Duration;
+
 use turso_orm::prelude::*;
+use turso_orm::{Checkpoint, ReplicaSync, SyncPolicy, SyncStatus};
 
-// --8<-- [start:push_pull]
-/// Sends the replica's local writes to Turso Cloud, then brings back what
-/// other writers committed there; `true` when the pull changed the replica.
+use crate::settings::Settings;
+
+// --8<-- [start:start]
+/// Starts the task that pushes, pulls and checkpoints the replica every
+/// `sync_interval` seconds, for as long as the handle lives.
 ///
-/// Both calls fail with `DbErr::Driver` on a database that is not a replica,
-/// which is why the handler checks the mode before calling this.
-pub async fn push_pull(db: &Database) -> Result<bool, DbErr> {
-    db.push().await?;
-    Ok(db.pull().await?)
+/// Fails with `DbErr::Driver` on a database that is not a replica, which is
+/// why `main` calls this in the `sync` mode only.
+pub fn start(db: &Database, settings: &Settings) -> Result<ReplicaSync, DbErr> {
+    let policy = SyncPolicy::new()
+        .interval(Duration::from_secs(settings.sync_interval))
+        .checkpoint(Checkpoint::AfterPush);
+    Ok(ReplicaSync::spawn(db.clone(), policy)?)
 }
-// --8<-- [end:push_pull]
+// --8<-- [end:start]
 
-// --8<-- [start:checkpoint_stats]
-/// Folds the replica's write-ahead log into its file. A replica that runs
-/// for long calls this after each successful push, so that its files stay
-/// bounded.
+/// Runs a round now, serialised with the task's own rounds, and hands back
+/// what it did.
+pub async fn round(sync: &ReplicaSync) -> Result<SyncStatus, DbErr> {
+    Ok(sync.trigger().await?)
+}
+
+// --8<-- [start:checkpoint]
+/// Folds the replica's write-ahead log into its file, outside the task's
+/// own rhythm.
 pub async fn checkpoint(db: &Database) -> Result<(), DbErr> {
     Ok(db.checkpoint().await?)
 }
-
-/// What the replica knows about itself: changes waiting to be pushed, the
-/// size of its logs, when it last exchanged with the cloud.
-pub async fn stats(db: &Database) -> Result<ReplicaStats, DbErr> {
-    Ok(db.stats().await?)
-}
-// --8<-- [end:checkpoint_stats]
+// --8<-- [end:checkpoint]

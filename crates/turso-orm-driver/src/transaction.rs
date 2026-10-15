@@ -41,7 +41,7 @@ use async_trait::async_trait;
 use turso_sql::Statement;
 
 use crate::connection::{ConnectionTrait, StreamTrait, TransactionTrait};
-use crate::database::{PooledConnection, retry_busy};
+use crate::database::{PooledConnection, retry_busy, retry_on_replica};
 use crate::error::{Error, Result};
 use crate::executor::{self, Conn, ExecResult, Row, RowStream};
 
@@ -253,6 +253,11 @@ impl Transaction {
         &self.shared.conn
     }
 
+    /// The options of the pool the connection came from.
+    fn options(&self) -> &crate::options::ConnectOptions {
+        self.shared.conn.options()
+    }
+
     /// Checks that this transaction may act, after applying the rollback
     /// owed by a dropped nested transaction.
     ///
@@ -388,22 +393,38 @@ impl Drop for Transaction {
 impl ConnectionTrait for Transaction {
     async fn execute(&self, statement: Statement) -> Result<ExecResult> {
         self.prepare().await?;
-        executor::execute(self.conn(), statement).await
+        retry_on_replica!(
+            self.options(),
+            statement,
+            executor::execute(self.conn(), statement)
+        )
     }
 
     async fn execute_unprepared(&self, sql: &str) -> Result<ExecResult> {
         self.prepare().await?;
-        executor::execute_unprepared(self.conn(), sql).await
+        retry_on_replica!(
+            self.options(),
+            sql,
+            executor::execute_unprepared(self.conn(), sql)
+        )
     }
 
     async fn query_one(&self, statement: Statement) -> Result<Option<Row>> {
         self.prepare().await?;
-        executor::query_one(self.conn(), statement).await
+        retry_on_replica!(
+            self.options(),
+            statement,
+            executor::query_one(self.conn(), statement)
+        )
     }
 
     async fn query_all(&self, statement: Statement) -> Result<Vec<Row>> {
         self.prepare().await?;
-        executor::query_all(self.conn(), statement).await
+        retry_on_replica!(
+            self.options(),
+            statement,
+            executor::query_all(self.conn(), statement)
+        )
     }
 }
 
@@ -416,7 +437,11 @@ impl StreamTrait for Transaction {
             self.prepare().await?;
             // The stream borrows the transaction, which already pins the
             // connection, so there is nothing extra to hold.
-            executor::stream(self.conn(), statement, ()).await
+            retry_on_replica!(
+                self.options(),
+                statement,
+                executor::stream(self.conn(), statement, ())
+            )
         })
     }
 }
