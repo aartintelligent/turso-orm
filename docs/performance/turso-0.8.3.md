@@ -6,48 +6,48 @@ Measured on 2026-10-15 with turso-orm 0.1.5 against turso 0.8.3, on 12th Gen Int
 
 | Group | ORM | raw | Ratio |
 |---|---|---|---|
-| `select/by_id` | 2.47 µs | 1.72 µs | 1.43× |
-| `select/by_user` | 7.79 µs | 5.68 µs | 1.37× |
-| `select/count` | 575.88 µs | 2.64 µs | 218.49× |
-| `select/cursor` | 21.76 µs | 16.34 µs | 1.33× |
-| `select/scan` (10000 rows) | 4.11 ms | 2.97 ms | 1.38× |
+| `select/by_id` | 2.32 µs | 1.56 µs | 1.49× |
+| `select/by_user` | 7.23 µs | 5.67 µs | 1.28× |
+| `select/count` | 3.02 µs | 2.41 µs | 1.25× |
+| `select/cursor` | 19.86 µs | 15.58 µs | 1.27× |
+| `select/scan` (10000 rows) | 3.76 ms | 2.80 ms | 1.34× |
 
 ## `insert`
 
 | Group | ORM | raw | Ratio |
 |---|---|---|---|
-| `insert/active_model` | 28.34 µs | 26.29 µs | 1.08× |
-| `insert/exec` | 13.05 µs | 12.86 µs | 1.01× |
-| `insert/many` (100 rows) | 378.26 µs | 302.41 µs | 1.25× |
+| `insert/active_model` | 27.86 µs | 27.35 µs | 1.02× |
+| `insert/exec` | 14.10 µs | 12.43 µs | 1.13× |
+| `insert/many` (100 rows) | 347.41 µs | 310.28 µs | 1.12× |
 
 ## `update`
 
 | Group | ORM | raw | Ratio |
 |---|---|---|---|
-| `update/active_model` | 15.74 µs | 14.43 µs | 1.09× |
-| `update/many` | 2.80 µs | 2.37 µs | 1.18× |
+| `update/active_model` | 15.49 µs | 13.99 µs | 1.11× |
+| `update/many` | 2.64 µs | 2.19 µs | 1.20× |
 
 ## `delete`
 
 | Group | ORM | raw | Ratio |
 |---|---|---|---|
-| `delete/insert_then_delete` | 21.49 µs | 20.18 µs | 1.06× |
+| `delete/insert_then_delete` | 20.69 µs | 19.69 µs | 1.05× |
 
 ## `relations`
 
 | Group | ORM | raw | Ratio |
 |---|---|---|---|
-| `relations/find_also_related` | 12.36 µs | 8.90 µs | 1.39× |
-| `relations/find_with_related` | 13.12 µs | 8.01 µs | 1.64× |
-| `relations/linked` | 33.54 µs | 29.54 µs | 1.14× |
-| `relations/load_many` | 36.84 µs | 34.70 µs | 1.06× |
+| `relations/find_also_related` | 13.17 µs | 8.99 µs | 1.47× |
+| `relations/find_with_related` | 13.56 µs | 7.93 µs | 1.71× |
+| `relations/linked` | 26.10 µs | 24.71 µs | 1.06× |
+| `relations/load_many` | 34.21 µs | 28.76 µs | 1.19× |
 
 ## `render`
 
 | Group | ORM | builder | Ratio |
 |---|---|---|---|
-| `render/create_table` | 229 ns | — | — |
-| `render/insert_many` (100 rows) | — | 21.62 µs | — |
-| `render/insert_one` | 138 ns | 131 ns | 1.06× |
-| `render/select_by_id` | 308 ns | 333 ns | 0.92× |
-| `render/select_join` | 580 ns | 486 ns | 1.19× |
+| `render/create_table` | 228 ns | — | — |
+| `render/insert_many` (100 rows) | — | 20.68 µs | — |
+| `render/insert_one` | 136 ns | 117 ns | 1.16× |
+| `render/select_by_id` | 297 ns | 287 ns | 1.04× |
+| `render/select_join` | 549 ns | 507 ns | 1.08× |
