@@ -258,7 +258,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: crate-ci/typos@v1.51.1
+      - uses: crate-ci/typos@v1.52.0
 
   # Guards the history: every commit of a pull request must be a Conventional
   # Commit (committed.toml), since release-plz derives versions from them.
