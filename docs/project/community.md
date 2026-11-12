@@ -4,10 +4,10 @@ turso-orm is developed in the open. Two places matter.
 
 ## GitHub
 
-The [repository](https://github.com/aartintelligent/turso-orm) is where
+The [repository](https://github.com/turso-orm/turso-orm) is where
 bugs, change requests and pull requests live, and where releases are
 published.
-[Discussions](https://github.com/aartintelligent/turso-orm/discussions)
+[Discussions](https://github.com/turso-orm/turso-orm/discussions)
 are for usage questions and ideas that are not yet a concrete request.
 
 ## Turso
@@ -23,4 +23,4 @@ This project follows the
 [Contributor Covenant](https://www.contributor-covenant.org/version/2/1/code_of_conduct/),
 version 2.1. Participation is expected to be respectful and constructive;
 the full text and the enforcement process are in the repository's
-[`CODE_OF_CONDUCT.md`](https://github.com/aartintelligent/turso-orm/blob/main/CODE_OF_CONDUCT.md).
+[`CODE_OF_CONDUCT.md`](https://github.com/turso-orm/turso-orm/blob/main/CODE_OF_CONDUCT.md).

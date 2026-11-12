@@ -38,8 +38,8 @@ Questions about the engine itself belong to the
 
 ## Links
 
-- [Repository](https://github.com/aartintelligent/turso-orm) and
-  [issues](https://github.com/aartintelligent/turso-orm/issues)
+- [Repository](https://github.com/turso-orm/turso-orm) and
+  [issues](https://github.com/turso-orm/turso-orm/issues)
 - [API reference](https://docs.rs/turso-orm) on docs.rs
 - [turso-orm on crates.io](https://crates.io/crates/turso-orm)
-- [Releases](https://github.com/aartintelligent/turso-orm/releases)
+- [Releases](https://github.com/turso-orm/turso-orm/releases)

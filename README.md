@@ -6,13 +6,13 @@ turso-orm lets a Rust application keep its data in the
 [Turso database](https://turso.tech/) through entities, relations and
 migrations, with everything the engine can do still within reach.
 
-[![CI](https://github.com/aartintelligent/turso-orm/actions/workflows/ci.yml/badge.svg)](https://github.com/aartintelligent/turso-orm/actions/workflows/ci.yml)
+[![CI](https://github.com/turso-orm/turso-orm/actions/workflows/ci.yml/badge.svg)](https://github.com/turso-orm/turso-orm/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/turso-orm.svg)](https://crates.io/crates/turso-orm)
 [![docs.rs](https://img.shields.io/docsrs/turso-orm)](https://docs.rs/turso-orm)
 [![MSRV](https://img.shields.io/badge/MSRV-1.94-blue.svg)](Cargo.toml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-[Guide](https://aartintelligent.github.io/turso-orm/) ·
+[Guide](https://turso-orm.github.io/turso-orm/) ·
 [API reference](https://docs.rs/turso-orm) ·
 [Examples](examples)
 
@@ -94,7 +94,7 @@ turso-orm = "0.1"
 tokio     = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-The [guide](https://aartintelligent.github.io/turso-orm/) takes it from
+The [guide](https://turso-orm.github.io/turso-orm/) takes it from
 there: a first entity in five short steps, then entities, queries, relations,
 transactions and migrations, each page explaining the why before the how.
 The [API reference](https://docs.rs/turso-orm) covers every item, and the
@@ -133,7 +133,7 @@ the workspace. Read the roadmap above before betting a product on it.
 **How is it organised?** Five crates, each depending only on the ones below
 it: the SQL builder, the driver, the derive macros, the ORM and the
 migrations. The
-[design page](https://aartintelligent.github.io/turso-orm/overview/design/)
+[design page](https://turso-orm.github.io/turso-orm/overview/design/)
 of the guide records the layering and the decisions behind it.
 
 ## Contributing

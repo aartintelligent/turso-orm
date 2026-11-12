@@ -43,7 +43,7 @@
 //! assert_eq!(values, vec![Value::Integer(18), Value::Integer(10)]);
 //! ```
 //!
-//! [turso-orm]: https://github.com/aartintelligent/turso-orm
+//! [turso-orm]: https://github.com/turso-orm/turso-orm
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod expr;
