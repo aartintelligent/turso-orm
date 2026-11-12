@@ -24,5 +24,5 @@ version of turso-orm is published, so that the page states the measurements
 of the released code, by hand from the Actions tab when the engine version
 changes between releases, or locally with `just bench-report`; the same
 engine version overwrites its page, a new one adds a page. The benchmarks themselves live in the
-[`benches/`](https://github.com/aartintelligent/turso-orm/tree/main/benches)
+[`benches/`](https://github.com/turso-orm/turso-orm/tree/main/benches)
 directory of the repository.

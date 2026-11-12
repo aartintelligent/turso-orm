@@ -6,7 +6,7 @@ rules, the commit conventions and how a change is validated before it is
 merged. It applies to both human contributors and AI coding agents.
 
 > Architecture decisions, code conventions and their rationale live in
-> [`AGENTS.md`](./AGENTS.md); the [design page](https://aartintelligent.github.io/turso-orm/design/) of the guide records the layering.
+> [`AGENTS.md`](./AGENTS.md); the [design page](https://turso-orm.github.io/turso-orm/design/) of the guide records the layering.
 > Read them before writing code. This file is the source of truth for the
 > workflow: tooling, gates, branches, commits and pull requests.
 
@@ -41,7 +41,7 @@ Turso database.
 ## Getting started
 
 ```sh
-git clone https://github.com/aartintelligent/turso-orm && cd turso-orm
+git clone https://github.com/turso-orm/turso-orm && cd turso-orm
 just setup                # installs the git hooks
 cargo build --workspace   # first build provisions the pinned toolchain
 just test

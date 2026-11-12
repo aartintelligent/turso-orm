@@ -73,7 +73,7 @@
 //! # }
 //! ```
 //!
-//! [turso-orm]: https://github.com/aartintelligent/turso-orm
+//! [turso-orm]: https://github.com/turso-orm/turso-orm
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod connection;

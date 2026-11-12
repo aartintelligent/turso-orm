@@ -29,6 +29,6 @@ changelogs.
 ## How to influence it
 
 Open a discussion or a change request on
-[GitHub](https://github.com/aartintelligent/turso-orm/issues); the
+[GitHub](https://github.com/turso-orm/turso-orm/issues); the
 [contributing page](../project/contributing.md) explains how a request
 becomes a change.

@@ -2,13 +2,13 @@
 
 Contributions are welcome: bug reports, change requests, documentation and
 pull requests. The repository's
-[`CONTRIBUTING.md`](https://github.com/aartintelligent/turso-orm/blob/main/CONTRIBUTING.md)
+[`CONTRIBUTING.md`](https://github.com/turso-orm/turso-orm/blob/main/CONTRIBUTING.md)
 is the complete reference for tooling, quality gates, branches and commit
 conventions; this page is the short version.
 
 ## Bug reports
 
-Open an [issue](https://github.com/aartintelligent/turso-orm/issues/new/choose)
+Open an [issue](https://github.com/turso-orm/turso-orm/issues/new/choose)
 with the bug report template. The most useful report contains the entity
 and the query that misbehave, the SQL you expected, the error or the
 result you got, and the versions of turso-orm and the engine. A failing

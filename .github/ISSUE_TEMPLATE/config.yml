@@ -1,7 +1,7 @@
 blank_issues_enabled: false
 contact_links:
   - name: Question / discussion
-    url: https://github.com/aartintelligent/turso-orm/discussions
+    url: https://github.com/turso-orm/turso-orm/discussions
     about: Ask usage questions or discuss ideas before opening an issue.
   - name: Turso documentation
     url: https://docs.turso.tech/

@@ -13,9 +13,9 @@
 [project]
 site_name = "Turso ORM"
 site_description = "An async ORM dedicated to the Turso database, with a typed entity API."
-site_url = "https://aartintelligent.github.io/turso-orm/"
-repo_url = "https://github.com/aartintelligent/turso-orm"
-repo_name = "aartintelligent/turso-orm"
+site_url = "https://turso-orm.github.io/turso-orm/"
+repo_url = "https://github.com/turso-orm/turso-orm"
+repo_name = "turso-orm/turso-orm"
 edit_uri = "edit/main/docs/"
 copyright = """
 Copyright &copy; Aurelien Andre. MIT OR Apache-2.0. turso-orm is an independent \
@@ -142,7 +142,7 @@ turso_version = "0.8.3"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
-link = "https://github.com/aartintelligent/turso-orm"
+link = "https://github.com/turso-orm/turso-orm"
 name = "turso-orm on GitHub"
 
 [[project.extra.social]]
