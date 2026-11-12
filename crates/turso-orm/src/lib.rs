@@ -44,7 +44,7 @@
 //!
 //! # Example
 //!
-//! ```ignore
+//! ```
 //! use turso_orm::prelude::*;
 //!
 //! #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
@@ -62,14 +62,33 @@
 //!
 //! impl ActiveModelBehavior for ActiveModel {}
 //!
-//! # async fn run() -> Result<(), DbErr> {
+//! # #[tokio::main(flavor = "current_thread")]
+//! # async fn main() -> Result<(), DbErr> {
 //! let db = Database::connect(ConnectOptions::in_memory()).await?;
 //! db.execute(Schema::new().create_table_from_entity(Entity).to_statement()).await?;
 //! let user = ActiveModel { email: Set("a@b.c".into()), ..Default::default() }.insert(&db).await?;
 //! let found = Entity::find_by_id(user.id).one(&db).await?;
+//! assert_eq!(found.map(|u| u.email), Some("a@b.c".to_owned()));
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Feature flags
+//!
+//! | Feature | Default | Enables |
+//! |---|---|---|
+//! | `macros` | on | The derive macros, re-exported through the [`prelude`] |
+//! | `with-chrono` | on | `NaiveDate`, `NaiveTime`, `NaiveDateTime`, `DateTime<Utc>` and `DateTime<FixedOffset>` columns |
+//! | `with-json` | on | `serde_json::Value` columns |
+//! | `with-uuid` | on | `uuid::Uuid` columns |
+//! | `with-rust_decimal` | off | `rust_decimal::Decimal` columns |
+//! | `fts` | off | The full-text search functions of the engine |
+//! | `sync` | off | Embedded replicas of Turso Cloud: a local file kept in sync with a cloud database |
+//! | `serverless` | off | Turso Cloud over HTTP, with no local file, through the `turso_serverless` client |
+//! | `mimalloc` | off | The engine's preferred global allocator |
+//!
+//! Every feature combination compiles on its own, so a dependency can turn
+//! off the defaults and pick only the column types it stores.
 //!
 //! [Turso]: https://github.com/tursodatabase/turso
 
