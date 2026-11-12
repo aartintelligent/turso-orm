@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.8](https://github.com/turso-orm/turso-orm/compare/turso-orm-v0.1.7...turso-orm-v0.1.8) - 2026-11-12
+
+### Documentation
+
+- *(orm)* list the feature flags on the crate page and run its example ([#86](https://github.com/turso-orm/turso-orm/pull/86))
+
 ## [0.1.7](https://github.com/aartintelligent/turso-orm/compare/turso-orm-v0.1.6...turso-orm-v0.1.7) - 2026-10-15
 
 ### Added
